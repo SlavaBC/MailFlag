@@ -99,13 +99,8 @@ def _visible_unquoted_text(value):
 def _phrase_positions(text, phrases):
     positions = []
     for phrase in phrases:
-        start = 0
-        while True:
-            pos = text.find(phrase, start)
-            if pos < 0:
-                break
-            positions.append((pos, phrase))
-            start = pos + len(phrase)
+        pattern = re.compile(rf"(?<!\w){re.escape(phrase)}(?!\w)")
+        positions.extend((match.start(), phrase) for match in pattern.finditer(text))
     return positions
 
 

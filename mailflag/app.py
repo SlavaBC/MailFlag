@@ -29,7 +29,7 @@ from .core.otp import (
     confidence as otp_confidence,
     extract_code,
 )
-from .core.preview import extract_preview
+from .core.preview import extract_human_text, extract_preview
 from .opening import (
     SYSTEM_DEFAULT,
     YAHOO_WEBMAIL,
@@ -916,9 +916,7 @@ def process_live_message(
     subject = msg.subject or "(no subject)"
     sender = msg.from_ or "(unknown sender)"
 
-    body = msg.text or ""
-    if not body and msg.html:
-        body = html_to_text(msg.html)
+    body = extract_human_text(msg.text, msg.html)
 
     code = extract_code(subject, body)
     uid = int(msg.uid)
@@ -1927,9 +1925,7 @@ class PendingReview:
                             email, uidvalidity, msg.uid, reference
                         )
 
-                        body = msg.text or ""
-                        if not body and msg.html:
-                            body = html_to_text(msg.html)
+                        body = extract_human_text(msg.text, msg.html)
 
                         items.append(
                             {

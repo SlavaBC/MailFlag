@@ -153,6 +153,18 @@ def _html_candidates(html_body: str | None) -> tuple[list[str], str]:
     return preheaders, visible
 
 
+def extract_human_text(
+    plain_body: str | None = None,
+    html_body: str | None = None,
+) -> str:
+    """Return the full cleaned human-readable body for semantic analysis."""
+    plain = "\n".join(_useful_lines(_normalize(plain_body)))
+    if _acceptable(plain):
+        return plain
+    _preheaders, visible = _html_candidates(html_body)
+    return visible if _acceptable(visible) else ""
+
+
 def extract_preview(
     plain_body: str | None = None,
     html_body: str | None = None,
@@ -174,19 +186,37 @@ def extract_preview(
 
 def extract_message_preview(message: Message, limit: int = 260) -> str:
     """Extract preview from a stdlib parsed MIME message."""
+    plain_parts, html_parts = _message_text_parts(message)
+    return extract_preview("\n".join(plain_parts), "\n".join(html_parts), limit)
+
+
+def extract_message_text(message: Message) -> str:
+    """Return full cleaned text from a stdlib parsed MIME message."""
+    plain_parts, html_parts = _message_text_parts(message)
+    return extract_human_text("\n".join(plain_parts), "\n".join(html_parts))
+
+
+def _message_text_parts(message: Message) -> tuple[list[str], list[str]]:
     plain_parts: list[str] = []
     html_parts: list[str] = []
-    parts = message.walk() if message.is_multipart() else (message,)
-    for part in parts:
-        if part.is_multipart() or part.get_content_disposition() == "attachment":
-            continue
+
+    def visit(part: Message) -> None:
+        if part.get_content_disposition() == "attachment":
+            return
+        if part.is_multipart():
+            payload = part.get_payload()
+            for child in payload if isinstance(payload, list) else ():
+                visit(child)
+            return
         content_type = part.get_content_type()
         if content_type not in {"text/plain", "text/html"}:
-            continue
+            return
         try:
             value = part.get_content()
         except (LookupError, UnicodeError):
             payload = part.get_payload(decode=True) or b""
             value = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
         (plain_parts if content_type == "text/plain" else html_parts).append(str(value))
-    return extract_preview("\n".join(plain_parts), "\n".join(html_parts), limit)
+
+    visit(message)
+    return plain_parts, html_parts

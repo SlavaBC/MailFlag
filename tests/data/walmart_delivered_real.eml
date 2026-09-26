@@ -1,0 +1,12 @@
+Subject: Your order was delivered
+From: Example Store <notices@example.test>
+To: recipient@example.test
+Message-ID: <walmart_delivered_regression.eml@example.test>
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><head><style>.imgWidth-0-278509-1{padding:0}.mjImage-0-278509-3{display=
+:block}</style></head><body><!-- verification code 278509 --><div class=3D"mj=
+Section-0-278509-5"><p>Your order has been delivered.</p><a href=3D"https://e=
+xample.test/track?id=3D278509">Track order</a></div></body></html>
