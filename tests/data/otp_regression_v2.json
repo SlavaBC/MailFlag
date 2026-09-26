@@ -1,0 +1,1232 @@
+{
+  "metadata": {
+    "name": "MailFlag OTP Regression Corpus v2",
+    "version": "2.0",
+    "purpose": "Second-pass adversarial regression corpus after fixes found with v1",
+    "format": "UTF-8 JSON",
+    "case_count": 120,
+    "otp_count": 60,
+    "normal_count": 60,
+    "policy": {
+      "supported_numeric_otp_length": "4-8 digits",
+      "leading_zero_codes": "supported and expected_code is stored as a string",
+      "classification_bias": "Prefer NORMAL when context is ambiguous",
+      "spaced_codes": "not included as OTP in v2",
+      "hyphenated_codes": "not included as OTP in v2",
+      "alphanumeric_codes": "not included as OTP in v2",
+      "quoted_old_codes": "covered in v1; v2 focuses on new semantic/contextual traps"
+    },
+    "schema": {
+      "id": "unique string",
+      "subject": "email subject",
+      "body": "plain text or HTML-like body",
+      "expected_type": "OTP or NORMAL",
+      "expected_code": "string for OTP, null for NORMAL",
+      "category": "test category",
+      "difficulty": "easy, medium or hard",
+      "comment": "reason for the case"
+    }
+  },
+  "cases": [
+    {
+      "id": "v2_otp_001",
+      "subject": "Your passcode",
+      "body": "Passcode: 4837",
+      "expected_type": "OTP",
+      "expected_code": "4837",
+      "category": "passcode",
+      "difficulty": "easy",
+      "comment": "Explicit 4-digit passcode."
+    },
+    {
+      "id": "v2_otp_002",
+      "subject": "Temporary code",
+      "body": "Your temporary code is (593104).",
+      "expected_type": "OTP",
+      "expected_code": "593104",
+      "category": "punctuation",
+      "difficulty": "easy",
+      "comment": "Code in parentheses."
+    },
+    {
+      "id": "v2_otp_003",
+      "subject": "Access code",
+      "body": "Use access code [771842] to continue.",
+      "expected_type": "OTP",
+      "expected_code": "771842",
+      "category": "punctuation",
+      "difficulty": "easy",
+      "comment": "Code in brackets."
+    },
+    {
+      "id": "v2_otp_004",
+      "subject": "Security PIN",
+      "body": "Your security PIN is 6428.",
+      "expected_type": "OTP",
+      "expected_code": "6428",
+      "category": "pin",
+      "difficulty": "easy",
+      "comment": "Explicit numeric PIN."
+    },
+    {
+      "id": "v2_otp_005",
+      "subject": "Login PIN",
+      "body": "Enter PIN 9162 to sign in.",
+      "expected_type": "OTP",
+      "expected_code": "9162",
+      "category": "pin",
+      "difficulty": "easy",
+      "comment": "PIN plus sign-in action."
+    },
+    {
+      "id": "v2_otp_006",
+      "subject": "Verify sign-in",
+      "body": "Your verification code: 304781.",
+      "expected_type": "OTP",
+      "expected_code": "304781",
+      "category": "clear_otp",
+      "difficulty": "easy",
+      "comment": "Classic verification code."
+    },
+    {
+      "id": "v2_otp_007",
+      "subject": "Confirm email",
+      "body": "Code 880214 confirms your email address.",
+      "expected_type": "OTP",
+      "expected_code": "880214",
+      "category": "clear_otp",
+      "difficulty": "medium",
+      "comment": "Code precedes the action."
+    },
+    {
+      "id": "v2_otp_008",
+      "subject": "Secure login",
+      "body": "For this login, use 517904.",
+      "expected_type": "OTP",
+      "expected_code": "517904",
+      "category": "natural_language",
+      "difficulty": "medium",
+      "comment": "No literal 'code', but clear sign-in instruction."
+    },
+    {
+      "id": "v2_otp_009",
+      "subject": "Device approval",
+      "body": "Enter 624817 on the verification screen.",
+      "expected_type": "OTP",
+      "expected_code": "624817",
+      "category": "natural_language",
+      "difficulty": "medium",
+      "comment": "Action phrase identifies OTP."
+    },
+    {
+      "id": "v2_otp_010",
+      "subject": "Account access",
+      "body": "Use 472901 to access your account.",
+      "expected_type": "OTP",
+      "expected_code": "472901",
+      "category": "natural_language",
+      "difficulty": "medium",
+      "comment": "Short body with account access context."
+    },
+    {
+      "id": "v2_otp_011",
+      "subject": "Two-step verification",
+      "body": "Two-step verification code: 301984",
+      "expected_type": "OTP",
+      "expected_code": "301984",
+      "category": "2fa",
+      "difficulty": "easy",
+      "comment": "2-step verification wording."
+    },
+    {
+      "id": "v2_otp_012",
+      "subject": "MFA code",
+      "body": "Your MFA code is 765311.",
+      "expected_type": "OTP",
+      "expected_code": "765311",
+      "category": "2fa",
+      "difficulty": "easy",
+      "comment": "MFA wording."
+    },
+    {
+      "id": "v2_otp_013",
+      "subject": "Authentication PIN",
+      "body": "Authentication PIN: 8807",
+      "expected_type": "OTP",
+      "expected_code": "8807",
+      "category": "pin",
+      "difficulty": "easy",
+      "comment": "Authentication PIN."
+    },
+    {
+      "id": "v2_otp_014",
+      "subject": "Sign-in challenge",
+      "body": "Challenge code 245901 expires in 3 minutes.",
+      "expected_type": "OTP",
+      "expected_code": "245901",
+      "category": "clear_otp",
+      "difficulty": "medium",
+      "comment": "Challenge code with expiry."
+    },
+    {
+      "id": "v2_otp_015",
+      "subject": "Approve login",
+      "body": "To approve this login, enter 391204.",
+      "expected_type": "OTP",
+      "expected_code": "391204",
+      "category": "natural_language",
+      "difficulty": "medium",
+      "comment": "Login approval action."
+    },
+    {
+      "id": "v2_otp_016",
+      "subject": "Password reset",
+      "body": "Use 908441 to reset your password.",
+      "expected_type": "OTP",
+      "expected_code": "908441",
+      "category": "password_reset",
+      "difficulty": "medium",
+      "comment": "Reset action without literal code."
+    },
+    {
+      "id": "v2_otp_017",
+      "subject": "Reset verification",
+      "body": "Reset code: 194602",
+      "expected_type": "OTP",
+      "expected_code": "194602",
+      "category": "password_reset",
+      "difficulty": "easy",
+      "comment": "Explicit reset code."
+    },
+    {
+      "id": "v2_otp_018",
+      "subject": "Confirm change",
+      "body": "To confirm this change, enter 520914.",
+      "expected_type": "OTP",
+      "expected_code": "520914",
+      "category": "natural_language",
+      "difficulty": "medium",
+      "comment": "Change confirmation OTP."
+    },
+    {
+      "id": "v2_otp_019",
+      "subject": "Verification",
+      "body": "Code: <b>661205</b>",
+      "expected_type": "OTP",
+      "expected_code": "661205",
+      "category": "html",
+      "difficulty": "medium",
+      "comment": "HTML tag around code."
+    },
+    {
+      "id": "v2_otp_020",
+      "subject": "Verify your account",
+      "body": "<div>Your verification code is&nbsp;<strong>409582</strong></div>",
+      "expected_type": "OTP",
+      "expected_code": "409582",
+      "category": "html",
+      "difficulty": "medium",
+      "comment": "HTML entity between phrase and code."
+    },
+    {
+      "id": "v2_otp_021",
+      "subject": "Secure sign-in",
+      "body": "<p>Use this code:</p>\n<p>750286</p>",
+      "expected_type": "OTP",
+      "expected_code": "750286",
+      "category": "html",
+      "difficulty": "medium",
+      "comment": "Phrase and code separated by HTML blocks."
+    },
+    {
+      "id": "v2_otp_022",
+      "subject": "MFA",
+      "body": "<span>MFA</span><br><span>code</span><br><h2>638104</h2>",
+      "expected_type": "OTP",
+      "expected_code": "638104",
+      "category": "html",
+      "difficulty": "hard",
+      "comment": "OTP phrase split across HTML elements."
+    },
+    {
+      "id": "v2_otp_023",
+      "subject": "One-time code",
+      "body": "Your one-time code is:\n\n284716",
+      "expected_type": "OTP",
+      "expected_code": "284716",
+      "category": "whitespace",
+      "difficulty": "medium",
+      "comment": "Code separated by blank lines."
+    },
+    {
+      "id": "v2_otp_024",
+      "subject": "Verification code",
+      "body": "Your verification code is\t691305",
+      "expected_type": "OTP",
+      "expected_code": "691305",
+      "category": "whitespace",
+      "difficulty": "medium",
+      "comment": "Tab before code."
+    },
+    {
+      "id": "v2_otp_025",
+      "subject": "Login code",
+      "body": "LOGIN CODE — 418602",
+      "expected_type": "OTP",
+      "expected_code": "418602",
+      "category": "punctuation",
+      "difficulty": "medium",
+      "comment": "Em dash separator."
+    },
+    {
+      "id": "v2_otp_026",
+      "subject": "Security code",
+      "body": "Security code: «573901»",
+      "expected_type": "OTP",
+      "expected_code": "573901",
+      "category": "punctuation",
+      "difficulty": "medium",
+      "comment": "Code in guillemets."
+    },
+    {
+      "id": "v2_otp_027",
+      "subject": "Authentication",
+      "body": "Use code #390482 to authenticate.",
+      "expected_type": "OTP",
+      "expected_code": "390482",
+      "category": "punctuation",
+      "difficulty": "medium",
+      "comment": "Hash symbol before code."
+    },
+    {
+      "id": "v2_otp_028",
+      "subject": "Confirm login",
+      "body": "Enter: 605318, then press Continue.",
+      "expected_type": "OTP",
+      "expected_code": "605318",
+      "category": "punctuation",
+      "difficulty": "medium",
+      "comment": "Code with colon and comma."
+    },
+    {
+      "id": "v2_otp_029",
+      "subject": "Your code",
+      "body": "Your code is 001947.",
+      "expected_type": "OTP",
+      "expected_code": "001947",
+      "category": "leading_zero",
+      "difficulty": "hard",
+      "comment": "Leading-zero OTP must remain a string."
+    },
+    {
+      "id": "v2_otp_030",
+      "subject": "Verification",
+      "body": "Code 0008 is valid for 2 minutes.",
+      "expected_type": "OTP",
+      "expected_code": "0008",
+      "category": "leading_zero",
+      "difficulty": "hard",
+      "comment": "4-digit OTP with leading zeros."
+    },
+    {
+      "id": "v2_otp_031",
+      "subject": "New verification code",
+      "body": "Old code 381204 expired. Your new verification code is 774315.",
+      "expected_type": "OTP",
+      "expected_code": "774315",
+      "category": "old_new_code",
+      "difficulty": "hard",
+      "comment": "New code must beat expired code."
+    },
+    {
+      "id": "v2_otp_032",
+      "subject": "Code replaced",
+      "body": "Do not use 662901. Replacement code: 310486.",
+      "expected_type": "OTP",
+      "expected_code": "310486",
+      "category": "old_new_code",
+      "difficulty": "hard",
+      "comment": "Replacement code beats explicitly invalid code."
+    },
+    {
+      "id": "v2_otp_033",
+      "subject": "Verification attempt",
+      "body": "Code 518206 is invalid. Use 840731 instead.",
+      "expected_type": "OTP",
+      "expected_code": "840731",
+      "category": "old_new_code",
+      "difficulty": "hard",
+      "comment": "Current code follows invalidated code."
+    },
+    {
+      "id": "v2_otp_034",
+      "subject": "Resend code",
+      "body": "Previous code: 442901. New code: 950713.",
+      "expected_type": "OTP",
+      "expected_code": "950713",
+      "category": "old_new_code",
+      "difficulty": "hard",
+      "comment": "New code beats previous code."
+    },
+    {
+      "id": "v2_otp_035",
+      "subject": "Account verification",
+      "body": "Reference 845201, request 771902. Verification code 630184.",
+      "expected_type": "OTP",
+      "expected_code": "630184",
+      "category": "multiple_numbers",
+      "difficulty": "hard",
+      "comment": "Three 6-digit numbers; explicit code wins."
+    },
+    {
+      "id": "v2_otp_036",
+      "subject": "Security check",
+      "body": "Session 490812 started at 12:48. Enter code 701526.",
+      "expected_type": "OTP",
+      "expected_code": "701526",
+      "category": "multiple_numbers",
+      "difficulty": "hard",
+      "comment": "Session/time numbers are not OTP."
+    },
+    {
+      "id": "v2_otp_037",
+      "subject": "Login attempt",
+      "body": "Attempt 883104 from device 550921. Use security code 219786.",
+      "expected_type": "OTP",
+      "expected_code": "219786",
+      "category": "multiple_numbers",
+      "difficulty": "hard",
+      "comment": "Explicit security code beats device/attempt IDs."
+    },
+    {
+      "id": "v2_otp_038",
+      "subject": "Payment verification",
+      "body": "Order 390184 total $77.16. Verification code: 621093.",
+      "expected_type": "OTP",
+      "expected_code": "621093",
+      "category": "multiple_numbers",
+      "difficulty": "hard",
+      "comment": "Price/order numbers should not override OTP."
+    },
+    {
+      "id": "v2_otp_039",
+      "subject": "Verify phone",
+      "body": "We sent a code to phone ending 7712. Enter 350941.",
+      "expected_type": "OTP",
+      "expected_code": "350941",
+      "category": "multiple_numbers",
+      "difficulty": "hard",
+      "comment": "Last-four digits are not OTP."
+    },
+    {
+      "id": "v2_otp_040",
+      "subject": "Sign-in request",
+      "body": "Requested on 09/25/2026 at 18:42. Use code 601785.",
+      "expected_type": "OTP",
+      "expected_code": "601785",
+      "category": "multiple_numbers",
+      "difficulty": "hard",
+      "comment": "Date/time digits are not OTP."
+    },
+    {
+      "id": "v2_otp_041",
+      "subject": "Код подтверждения",
+      "body": "Ваш код подтверждения: 482915",
+      "expected_type": "OTP",
+      "expected_code": "482915",
+      "category": "ru_otp",
+      "difficulty": "easy",
+      "comment": "Russian explicit verification code."
+    },
+    {
+      "id": "v2_otp_042",
+      "subject": "Код для входа",
+      "body": "Введите код 731604 для входа в аккаунт.",
+      "expected_type": "OTP",
+      "expected_code": "731604",
+      "category": "ru_otp",
+      "difficulty": "easy",
+      "comment": "Russian login code."
+    },
+    {
+      "id": "v2_otp_043",
+      "subject": "Безопасность аккаунта",
+      "body": "Одноразовый код: 550218",
+      "expected_type": "OTP",
+      "expected_code": "550218",
+      "category": "ru_otp",
+      "difficulty": "easy",
+      "comment": "Russian one-time code."
+    },
+    {
+      "id": "v2_otp_044",
+      "subject": "Подтверждение входа",
+      "body": "Для подтверждения входа введите 640291.",
+      "expected_type": "OTP",
+      "expected_code": "640291",
+      "category": "ru_otp",
+      "difficulty": "medium",
+      "comment": "Russian OTP without literal 'код' near number."
+    },
+    {
+      "id": "v2_otp_045",
+      "subject": "Проверка личности",
+      "body": "Используйте 904173 для подтверждения личности.",
+      "expected_type": "OTP",
+      "expected_code": "904173",
+      "category": "ru_otp",
+      "difficulty": "medium",
+      "comment": "Russian identity verification."
+    },
+    {
+      "id": "v2_otp_046",
+      "subject": "Новый код",
+      "body": "Старый код 118204 больше не действует. Новый код подтверждения: 785310.",
+      "expected_type": "OTP",
+      "expected_code": "785310",
+      "category": "ru_old_new",
+      "difficulty": "hard",
+      "comment": "Russian old/new code discrimination."
+    },
+    {
+      "id": "v2_otp_047",
+      "subject": "Security code",
+      "body": "Your code is 472901.\nNever share this code with anyone.",
+      "expected_type": "OTP",
+      "expected_code": "472901",
+      "category": "security_warning",
+      "difficulty": "medium",
+      "comment": "Common do-not-share wording."
+    },
+    {
+      "id": "v2_otp_048",
+      "subject": "Verification",
+      "body": "Your verification code is 623804. We will never ask you for this code.",
+      "expected_type": "OTP",
+      "expected_code": "623804",
+      "category": "security_warning",
+      "difficulty": "medium",
+      "comment": "Warning text should not confuse detection."
+    },
+    {
+      "id": "v2_otp_049",
+      "subject": "Confirm action",
+      "body": "Use 591280 as the one-time confirmation code.",
+      "expected_type": "OTP",
+      "expected_code": "591280",
+      "category": "clear_otp",
+      "difficulty": "medium",
+      "comment": "One-time confirmation code."
+    },
+    {
+      "id": "v2_otp_050",
+      "subject": "Access confirmation",
+      "body": "Temporary access code = 281450",
+      "expected_type": "OTP",
+      "expected_code": "281450",
+      "category": "clear_otp",
+      "difficulty": "easy",
+      "comment": "Equals separator."
+    },
+    {
+      "id": "v2_otp_051",
+      "subject": "Login verification",
+      "body": "Use code 490716 within 60 seconds.",
+      "expected_type": "OTP",
+      "expected_code": "490716",
+      "category": "expiry",
+      "difficulty": "medium",
+      "comment": "Short validity period."
+    },
+    {
+      "id": "v2_otp_052",
+      "subject": "Security check",
+      "body": "Enter 783014. This code expires at 14:35.",
+      "expected_type": "OTP",
+      "expected_code": "783014",
+      "category": "expiry",
+      "difficulty": "medium",
+      "comment": "Expiry time is not OTP."
+    },
+    {
+      "id": "v2_otp_053",
+      "subject": "Verification token",
+      "body": "Numeric verification token: 904681",
+      "expected_type": "OTP",
+      "expected_code": "904681",
+      "category": "token_wording",
+      "difficulty": "medium",
+      "comment": "Token wording but numeric OTP semantics."
+    },
+    {
+      "id": "v2_otp_054",
+      "subject": "Confirm identity",
+      "body": "Passcode 7319 is required to continue.",
+      "expected_type": "OTP",
+      "expected_code": "7319",
+      "category": "passcode",
+      "difficulty": "medium",
+      "comment": "4-digit passcode."
+    },
+    {
+      "id": "v2_otp_055",
+      "subject": "Authorize request",
+      "body": "Authorization code: 818402",
+      "expected_type": "OTP",
+      "expected_code": "818402",
+      "category": "authorization",
+      "difficulty": "medium",
+      "comment": "Authorization code used as one-time code."
+    },
+    {
+      "id": "v2_otp_056",
+      "subject": "Authorize this device",
+      "body": "Enter authorization code 401735 on the device.",
+      "expected_type": "OTP",
+      "expected_code": "401735",
+      "category": "authorization",
+      "difficulty": "medium",
+      "comment": "Device authorization context."
+    },
+    {
+      "id": "v2_otp_057",
+      "subject": "Verification notice",
+      "body": "The code you requested is 214690.",
+      "expected_type": "OTP",
+      "expected_code": "214690",
+      "category": "natural_language",
+      "difficulty": "medium",
+      "comment": "Requested code wording."
+    },
+    {
+      "id": "v2_otp_058",
+      "subject": "Login confirmation",
+      "body": "Please use the following number to sign in: 739201",
+      "expected_type": "OTP",
+      "expected_code": "739201",
+      "category": "natural_language",
+      "difficulty": "hard",
+      "comment": "Number used as sign-in credential without word code."
+    },
+    {
+      "id": "v2_otp_059",
+      "subject": "Confirm account",
+      "body": "Enter this number in the verification dialog: 852104",
+      "expected_type": "OTP",
+      "expected_code": "852104",
+      "category": "natural_language",
+      "difficulty": "hard",
+      "comment": "Verification dialog implies OTP."
+    },
+    {
+      "id": "v2_otp_060",
+      "subject": "Secure access",
+      "body": "For secure access, type 620813 when prompted.",
+      "expected_type": "OTP",
+      "expected_code": "620813",
+      "category": "natural_language",
+      "difficulty": "hard",
+      "comment": "Contextual OTP without literal code."
+    },
+    {
+      "id": "v2_normal_001",
+      "subject": "Security bulletin 4837",
+      "body": "A security bulletin numbered 4837 was published.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "easy",
+      "comment": "Bulletin number."
+    },
+    {
+      "id": "v2_normal_002",
+      "subject": "Login history",
+      "body": "Login event 593104 was recorded yesterday.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "easy",
+      "comment": "Login event ID."
+    },
+    {
+      "id": "v2_normal_003",
+      "subject": "Verification report",
+      "body": "Verification report 771842 is attached.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "verification_nonotp",
+      "difficulty": "easy",
+      "comment": "Report ID."
+    },
+    {
+      "id": "v2_normal_004",
+      "subject": "Authentication test",
+      "body": "Authentication test 6428 passed.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "easy",
+      "comment": "Test number in authentication context."
+    },
+    {
+      "id": "v2_normal_005",
+      "subject": "Security scan complete",
+      "body": "Scan 9162 completed with no findings.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "easy",
+      "comment": "Security scan ID."
+    },
+    {
+      "id": "v2_normal_006",
+      "subject": "Compliance verification",
+      "body": "Case 304781 passed compliance verification.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "verification_nonotp",
+      "difficulty": "medium",
+      "comment": "Business/compliance verification."
+    },
+    {
+      "id": "v2_normal_007",
+      "subject": "Identity verification complete",
+      "body": "Request 880214 was approved.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "verification_nonotp",
+      "difficulty": "medium",
+      "comment": "Completed identity-verification request."
+    },
+    {
+      "id": "v2_normal_008",
+      "subject": "Login report",
+      "body": "Report 517904 contains your recent login history.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "medium",
+      "comment": "Login report number."
+    },
+    {
+      "id": "v2_normal_009",
+      "subject": "Device approval history",
+      "body": "Approval record 624817 was archived.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "medium",
+      "comment": "Approval record, not OTP."
+    },
+    {
+      "id": "v2_normal_010",
+      "subject": "Account access log",
+      "body": "Access log 472901 is ready.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "medium",
+      "comment": "Access-log ID."
+    },
+    {
+      "id": "v2_normal_011",
+      "subject": "Invoice #301984",
+      "body": "Your invoice is ready for download.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "commerce",
+      "difficulty": "easy",
+      "comment": "Invoice number."
+    },
+    {
+      "id": "v2_normal_012",
+      "subject": "Order 765311 shipped",
+      "body": "Tracking details are available.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "commerce",
+      "difficulty": "easy",
+      "comment": "Order number."
+    },
+    {
+      "id": "v2_normal_013",
+      "subject": "Reservation 8807 confirmed",
+      "body": "Your table is reserved for 7:30 PM.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "commerce",
+      "difficulty": "easy",
+      "comment": "Reservation number."
+    },
+    {
+      "id": "v2_normal_014",
+      "subject": "Support ticket 245901",
+      "body": "Your ticket has a new reply.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "ticket",
+      "difficulty": "easy",
+      "comment": "Support ticket."
+    },
+    {
+      "id": "v2_normal_015",
+      "subject": "Case 391204 closed",
+      "body": "Your service case was closed.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "ticket",
+      "difficulty": "easy",
+      "comment": "Case number."
+    },
+    {
+      "id": "v2_normal_016",
+      "subject": "Shipment 908441 delayed",
+      "body": "Delivery is expected tomorrow.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "commerce",
+      "difficulty": "easy",
+      "comment": "Shipment number."
+    },
+    {
+      "id": "v2_normal_017",
+      "subject": "Receipt 194602",
+      "body": "Thank you for your purchase.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "commerce",
+      "difficulty": "easy",
+      "comment": "Receipt number."
+    },
+    {
+      "id": "v2_normal_018",
+      "subject": "Booking 520914",
+      "body": "Your booking details have changed.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "commerce",
+      "difficulty": "easy",
+      "comment": "Booking number."
+    },
+    {
+      "id": "v2_normal_019",
+      "subject": "Build 661205 succeeded",
+      "body": "All tests passed.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "easy",
+      "comment": "Build number."
+    },
+    {
+      "id": "v2_normal_020",
+      "subject": "Pipeline 409582 failed",
+      "body": "The deployment stage failed.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "easy",
+      "comment": "Pipeline number."
+    },
+    {
+      "id": "v2_normal_021",
+      "subject": "Workflow 750286 completed",
+      "body": "No action is required.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "easy",
+      "comment": "Workflow ID."
+    },
+    {
+      "id": "v2_normal_022",
+      "subject": "Test run 638104",
+      "body": "Regression suite finished.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "easy",
+      "comment": "Test-run number."
+    },
+    {
+      "id": "v2_normal_023",
+      "subject": "Issue #284716 updated",
+      "body": "A comment was added.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "easy",
+      "comment": "Issue number."
+    },
+    {
+      "id": "v2_normal_024",
+      "subject": "PR #691305 merged",
+      "body": "The pull request was merged.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "easy",
+      "comment": "Pull-request number."
+    },
+    {
+      "id": "v2_normal_025",
+      "subject": "Release 418602",
+      "body": "Release artifact is available.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "easy",
+      "comment": "Release ID."
+    },
+    {
+      "id": "v2_normal_026",
+      "subject": "Commit verification",
+      "body": "Commit a573901 passed signature verification.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "medium",
+      "comment": "Digits embedded in commit-like token."
+    },
+    {
+      "id": "v2_normal_027",
+      "subject": "Security patch KB390482",
+      "body": "The patch installed successfully.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "medium",
+      "comment": "KB identifier."
+    },
+    {
+      "id": "v2_normal_028",
+      "subject": "Verification job #605318",
+      "body": "Automated verification job finished.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "medium",
+      "comment": "Verification job number."
+    },
+    {
+      "id": "v2_normal_029",
+      "subject": "Customer number 001947",
+      "body": "Your profile has been updated.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "identifier",
+      "difficulty": "medium",
+      "comment": "Leading-zero customer ID."
+    },
+    {
+      "id": "v2_normal_030",
+      "subject": "Locker 0008",
+      "body": "Package is available in locker 0008.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "identifier",
+      "difficulty": "medium",
+      "comment": "4-digit locker number."
+    },
+    {
+      "id": "v2_normal_031",
+      "subject": "Code review 381204",
+      "body": "A reviewer approved your changes.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "hard",
+      "comment": "Phrase 'code review' must not mean OTP."
+    },
+    {
+      "id": "v2_normal_032",
+      "subject": "Source code 662901",
+      "body": "Repository snapshot 662901 was archived.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "dev_nonotp",
+      "difficulty": "hard",
+      "comment": "Word code refers to source code."
+    },
+    {
+      "id": "v2_normal_033",
+      "subject": "Error code 518206",
+      "body": "The application returned error code 518206.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "error_code",
+      "difficulty": "hard",
+      "comment": "Error code is not OTP."
+    },
+    {
+      "id": "v2_normal_034",
+      "subject": "Status code 840731",
+      "body": "Status code 840731 was returned by the service.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "error_code",
+      "difficulty": "hard",
+      "comment": "Status code is not OTP."
+    },
+    {
+      "id": "v2_normal_035",
+      "subject": "Promo code 845201",
+      "body": "Use promo code 845201 for 10% off.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "non_auth_code",
+      "difficulty": "hard",
+      "comment": "Promo code must not be treated as OTP."
+    },
+    {
+      "id": "v2_normal_036",
+      "subject": "Coupon code 771902",
+      "body": "Coupon code 771902 expires Friday.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "non_auth_code",
+      "difficulty": "hard",
+      "comment": "Coupon code is not authentication."
+    },
+    {
+      "id": "v2_normal_037",
+      "subject": "Referral code 630184",
+      "body": "Share referral code 630184 with friends.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "non_auth_code",
+      "difficulty": "hard",
+      "comment": "Referral code is not OTP."
+    },
+    {
+      "id": "v2_normal_038",
+      "subject": "Product code 490812",
+      "body": "Product code 490812 is back in stock.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "non_auth_code",
+      "difficulty": "hard",
+      "comment": "Product code is not OTP."
+    },
+    {
+      "id": "v2_normal_039",
+      "subject": "Unlock code in manual",
+      "body": "The manual references unlock code 701526 for model X.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "non_auth_code",
+      "difficulty": "hard",
+      "comment": "Static device/manual code, not transient OTP."
+    },
+    {
+      "id": "v2_normal_040",
+      "subject": "ZIP code 550921",
+      "body": "The destination ZIP code is 550921.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "non_auth_code",
+      "difficulty": "hard",
+      "comment": "Postal code."
+    },
+    {
+      "id": "v2_normal_041",
+      "subject": "Verification newsletter",
+      "body": "This week: verification tools, security tips, and 219786 downloads.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "newsletter",
+      "difficulty": "hard",
+      "comment": "Newsletter with verification/security words and a number."
+    },
+    {
+      "id": "v2_normal_042",
+      "subject": "Security digest",
+      "body": "Your weekly security digest contains 390184 blocked requests.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "newsletter",
+      "difficulty": "hard",
+      "comment": "Aggregate count."
+    },
+    {
+      "id": "v2_normal_043",
+      "subject": "Login statistics",
+      "body": "There were 621093 successful logins this month.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "newsletter",
+      "difficulty": "hard",
+      "comment": "Statistics count."
+    },
+    {
+      "id": "v2_normal_044",
+      "subject": "Authentication metrics",
+      "body": "Authentication latency improved by 12.48%; sample size 350941.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "newsletter",
+      "difficulty": "hard",
+      "comment": "Metrics in auth context."
+    },
+    {
+      "id": "v2_normal_045",
+      "subject": "Verification guide",
+      "body": "Read our 2026 verification guide, document 601785.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "newsletter",
+      "difficulty": "hard",
+      "comment": "Guide/document number."
+    },
+    {
+      "id": "v2_normal_046",
+      "subject": "Security alert",
+      "body": "A device with serial 482915 connected to your account.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "medium",
+      "comment": "Device serial in alert."
+    },
+    {
+      "id": "v2_normal_047",
+      "subject": "Login alert",
+      "body": "Session ID 731604 was terminated.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "medium",
+      "comment": "Session ID."
+    },
+    {
+      "id": "v2_normal_048",
+      "subject": "Account security",
+      "body": "Case 550218 was escalated to our security team.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "security_nonotp",
+      "difficulty": "medium",
+      "comment": "Security case number."
+    },
+    {
+      "id": "v2_normal_049",
+      "subject": "Identity verification history",
+      "body": "Record 640291 was created last month.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "verification_nonotp",
+      "difficulty": "medium",
+      "comment": "Historical verification record."
+    },
+    {
+      "id": "v2_normal_050",
+      "subject": "Verification archive",
+      "body": "Archived request 904173 can be viewed online.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "verification_nonotp",
+      "difficulty": "medium",
+      "comment": "Archived request."
+    },
+    {
+      "id": "v2_normal_051",
+      "subject": "Код ошибки 118204",
+      "body": "Приложение завершилось с кодом ошибки 118204.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "ru_nonotp",
+      "difficulty": "hard",
+      "comment": "Russian error-code context."
+    },
+    {
+      "id": "v2_normal_052",
+      "subject": "Код заказа 785310",
+      "body": "Код вашего заказа: 785310.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "ru_nonotp",
+      "difficulty": "hard",
+      "comment": "Russian order code, not OTP."
+    },
+    {
+      "id": "v2_normal_053",
+      "subject": "Проверка завершена",
+      "body": "Проверка сборки 472901 завершена успешно.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "ru_nonotp",
+      "difficulty": "hard",
+      "comment": "Russian build verification."
+    },
+    {
+      "id": "v2_normal_054",
+      "subject": "Безопасность аккаунта",
+      "body": "Событие безопасности 623804 зарегистрировано.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "ru_nonotp",
+      "difficulty": "hard",
+      "comment": "Russian security event ID."
+    },
+    {
+      "id": "v2_normal_055",
+      "subject": "История входов",
+      "body": "Вход 591280 был выполнен вчера.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "ru_nonotp",
+      "difficulty": "hard",
+      "comment": "Russian login history."
+    },
+    {
+      "id": "v2_normal_056",
+      "subject": "Your verification code",
+      "body": "No code was generated. Reference number 281450.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "keyword_without_code",
+      "difficulty": "hard",
+      "comment": "OTP subject but body says no code; number is reference."
+    },
+    {
+      "id": "v2_normal_057",
+      "subject": "Security code request failed",
+      "body": "Request 490716 failed before a code was created.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "keyword_without_code",
+      "difficulty": "hard",
+      "comment": "Request ID must not become OTP."
+    },
+    {
+      "id": "v2_normal_058",
+      "subject": "One-time code expired",
+      "body": "The one-time code has expired. Ticket 783014 was opened.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "keyword_without_code",
+      "difficulty": "hard",
+      "comment": "Expired-code notice with ticket number."
+    },
+    {
+      "id": "v2_normal_059",
+      "subject": "Authentication code unavailable",
+      "body": "No authentication code is available. Error 904681.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "keyword_without_code",
+      "difficulty": "hard",
+      "comment": "Error number in strong-keyword context."
+    },
+    {
+      "id": "v2_normal_060",
+      "subject": "Passcode settings",
+      "body": "Your passcode policy was updated. Policy ID 7319.",
+      "expected_type": "NORMAL",
+      "expected_code": null,
+      "category": "keyword_without_code",
+      "difficulty": "hard",
+      "comment": "Passcode-policy ID, not OTP."
+    }
+  ]
+}
