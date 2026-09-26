@@ -29,6 +29,7 @@ from .core.otp import (
     confidence as otp_confidence,
     extract_code,
 )
+from .core.preview import extract_preview
 from .opening import (
     SYSTEM_DEFAULT,
     YAHOO_WEBMAIL,
@@ -260,10 +261,7 @@ def html_to_text(value):
 
 def make_preview(body, limit=260):
     """Make a short single-line preview for an ordinary-mail popup."""
-    body = SPACE_RE.sub(" ", (body or "")).strip()
-    if len(body) <= limit:
-        return body
-    return body[: limit - 1].rstrip() + "…"
+    return extract_preview(plain_body=body, limit=limit)
 
 
 def _folder_name_and_flags(folder_info):
@@ -958,7 +956,7 @@ def process_live_message(
         payload = (
             sender,
             subject,
-            make_preview(body),
+            extract_preview(msg.text, msg.html),
             uid,
             uidvalidity,
             email,
@@ -1941,7 +1939,7 @@ class PendingReview:
                                 "uid": int(msg.uid),
                                 "sender": sender,
                                 "subject": subject,
-                                "preview": make_preview(body),
+                                "preview": extract_preview(msg.text, msg.html),
                                 "code": extract_code(subject, body),
                                 "message_id": reference["message_id"],
                                 "date": reference["date"],

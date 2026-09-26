@@ -1,0 +1,13 @@
+Subject: Your order is on the move
+From: Example Store <notices@example.test>
+To: recipient@example.test
+Message-ID: <walmart_shipping_regression.eml@example.test>
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><head><style>#outlook a{padding:0}@media screen{table{border:0!importan=
+t}}</style></head><body><div class=3D"preheader" style=3D"display:none">Good =
+news! Items from your order have been processed and will be on their way soon=
+.</div><h1>Your order is moving</h1><p>Track your shipment in your account.</=
+p></body></html>
