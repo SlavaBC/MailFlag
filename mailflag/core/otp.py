@@ -37,7 +37,8 @@ OTP_POSITIVE_PHRASES = (
     "recovery code", "account recovery code",
     "код подтверждения", "проверочный код", "код безопасности",
     "код входа", "код авторизации", "код восстановления", "одноразовый код", "ваш код",
-    "your code", "enter", "use code", "use this", "введите",
+    "your code", "enter", "enter the following code", "use code",
+    "use this", "use the following code", "введите",
     "используйте код", "подтвердите аккаунт кодом",
 )
 

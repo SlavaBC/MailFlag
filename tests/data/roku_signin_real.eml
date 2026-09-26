@@ -1,0 +1,11 @@
+Subject: Sign-in request
+From: Example Streaming <security@example.test>
+To: recipient@example.test
+Message-ID: <roku_signin_regression.eml@example.test>
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><div class=3D"preheader" style=3D"display:none">Shop Now</div><h1=
+>Signing in?</h1><p>Are you trying to sign in to your streaming account?</p><=
+p>Your verification code is <strong>482913</strong>.</p></body></html>

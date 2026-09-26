@@ -17,8 +17,15 @@ BOILERPLATE_RE = re.compile(
     r"^(?:view (?:this (?:email|message)|email) in (?:your )?browser|"
     r"view in browser|having trouble viewing (?:this|the) email\??|"
     r"trouble viewing\??|unsubscribe|manage (?:your )?preferences|"
-    r"privacy policy|email preferences)(?:\s*[|·•-].*)?$", re.I,
+    r"privacy policy|email preferences|scroll down for (?:english|french)|"
+    r"défilez vers le bas pour le français)[.!?]?(?:\s*[|·•-].*)?$", re.I,
 )
+SHORT_NAVIGATION_RE = re.compile(
+    r"^(?:shop now|buy again|your orders?|your account|track package|"
+    r"view order|view details|learn more|blog|support|sign in|log in)$", re.I,
+)
+SALUTATION_RE = re.compile(r"^(?:hi|hello|dear)\b[^.!?]{0,40}[,:]?$", re.I)
+URL_LINE_RE = re.compile(r"^(?:https?://|www\.)\S+$", re.I)
 QUOTE_BOUNDARY_RE = re.compile(
     r"^(?:-{2,}\s*(?:original|forwarded) message\s*-{2,}|"
     r"begin forwarded message:|on .+ wrote:|from:\s+.+)$", re.I,
@@ -69,6 +76,40 @@ def _acceptable(value: str) -> bool:
     if re.search(r"(?:\{\s*[a-z-]+\s*:|</?[a-z][^>]*>)", value, re.I):
         return False
     return True
+
+
+def _preview_junk(line: str) -> bool:
+    words = re.findall(r"[^\W_]+", line, re.UNICODE)
+    return (
+        not words
+        or BOILERPLATE_RE.match(line) is not None
+        or SHORT_NAVIGATION_RE.match(line) is not None
+        or SALUTATION_RE.match(line) is not None
+        or URL_LINE_RE.match(line) is not None
+        or (len(words) <= 2 and len(line) < 18 and not re.search(r"[.!?]$", line))
+    )
+
+
+def _substantive(line: str) -> bool:
+    words = re.findall(r"[^\W_]+", line, re.UNICODE)
+    return len(words) >= 4 and len(line) >= 20 and _acceptable(line)
+
+
+def _preview_from_text(value: str | None, limit: int) -> str:
+    lines = [line for line in _useful_lines(_normalize(value)) if not _preview_junk(line)]
+    start = next((index for index, line in enumerate(lines) if _substantive(line)), None)
+    if start is None:
+        return ""
+    chosen = []
+    if start and len(lines[start - 1]) <= 45:
+        chosen.append(lines[start - 1])
+    chosen.append(lines[start])
+    for line in lines[start + 1:]:
+        if len(chosen) >= 4 or len(" ".join(chosen)) >= limit:
+            break
+        chosen.append(line)
+    candidate = " ".join(chosen)
+    return _finish(candidate, limit) if _acceptable(candidate) else ""
 
 
 def _finish(value: str, limit: int) -> str:
@@ -171,17 +212,16 @@ def extract_preview(
     limit: int = 260,
 ) -> str:
     """Return the best human-readable preview, or an empty string."""
-    plain = "\n".join(_useful_lines(_normalize(plain_body)))
-    if _acceptable(plain):
-        return _finish(plain, limit)
+    plain = _preview_from_text(plain_body, limit)
+    if plain:
+        return plain
 
     preheaders, visible = _html_candidates(html_body)
     for candidate in preheaders:
-        if _acceptable(candidate):
-            return _finish(candidate, limit)
-    if _acceptable(visible):
-        return _finish(visible, limit)
-    return ""
+        preview = _preview_from_text(candidate, limit)
+        if preview:
+            return preview
+    return _preview_from_text(visible, limit)
 
 
 def extract_message_preview(message: Message, limit: int = 260) -> str:

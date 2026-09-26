@@ -114,6 +114,14 @@ class HtmlSafeOtpPipeline(unittest.TestCase):
         self.assertNotIn("278509", body)
         self.assertEqual(result["type"], "NORMAL")
 
+    def test_real_roku_signin_message_is_otp(self):
+        message = BytesParser(policy=policy.default).parsebytes(
+            (DATA / "roku_signin_real.eml").read_bytes()
+        )
+        body = extract_message_text(message)
+        result = classify_otp(str(message["Subject"]), body)
+        self.assertEqual((result["type"], result["code"]), ("OTP", "482913"))
+
 
 if __name__ == "__main__":
     unittest.main()

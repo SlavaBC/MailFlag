@@ -1,0 +1,11 @@
+Subject: Your package was shipped
+From: Example Marketplace <shipments@example.test>
+To: recipient@example.test
+Message-ID: <amazon_shipped_regression.eml@example.test>
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><nav><a href=3D"https://example.test/orders">Your Orders</a></nav=
+><h1>Your package was shipped!</h1><p>It is on the way and will arrive soon.<=
+/p></body></html>

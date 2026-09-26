@@ -44,7 +44,7 @@ class PreviewExtractorTests(unittest.TestCase):
         html = "<html><body><h1>Welcome back</h1><p>Your weekly report is ready.</p></body></html>"
         self.assertEqual(
             extract_preview(html_body=html),
-            "Welcome back Your weekly report is ready.",
+            "Your weekly report is ready.",
         )
 
     def test_css_heavy_email_discards_head(self):
@@ -112,6 +112,31 @@ class PreviewExtractorTests(unittest.TestCase):
             "Good news! Items from your order have been processed and will be on their way soon.",
         )
         self.assertNotRegex(preview, r"padding:|margin:|@media|!important")
+
+    def test_real_capital_one_skips_language_boilerplate(self):
+        message = BytesParser(policy=policy.default).parsebytes(
+            (DATA / "capital_one_payment_real.eml").read_bytes()
+        )
+        preview = extract_message_preview(message)
+        self.assertTrue(preview.startswith("Thanks for your payment of $100.00."), preview)
+        self.assertNotIn("Défilez vers le bas", preview)
+
+    def test_real_amazon_skips_navigation_and_urls(self):
+        message = BytesParser(policy=policy.default).parsebytes(
+            (DATA / "amazon_shipped_real.eml").read_bytes()
+        )
+        preview = extract_message_preview(message)
+        self.assertTrue(preview.startswith("Your package was shipped!"), preview)
+        self.assertNotIn("https://", preview)
+        self.assertNotIn("Your Orders", preview)
+
+    def test_real_roku_does_not_use_shop_now_preheader(self):
+        message = BytesParser(policy=policy.default).parsebytes(
+            (DATA / "roku_signin_real.eml").read_bytes()
+        )
+        preview = extract_message_preview(message)
+        self.assertTrue(preview.startswith("Signing in? Are you trying to sign in"), preview)
+        self.assertNotEqual(preview, "Shop Now")
 
 
 if __name__ == "__main__":

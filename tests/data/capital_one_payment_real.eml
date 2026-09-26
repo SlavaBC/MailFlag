@@ -1,0 +1,11 @@
+Subject: Payment posted
+From: Example Bank <notices@example.test>
+To: recipient@example.test
+Message-ID: <capital_one_payment_regression.eml@example.test>
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><p>D=C3=A9filez vers le bas pour le fran=C3=A7ais.</p><p>Thanks f=
+or your payment of $100.00.</p><p>Your account has been updated.</p></body></=
+html>
