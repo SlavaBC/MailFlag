@@ -95,6 +95,22 @@ class ConnectionHealth(unittest.TestCase):
         mailbox.client.sock.shutdown.assert_called_once_with(app.socket.SHUT_RDWR)
         mailbox.client.sock.close.assert_called_once()
 
+    def test_watchdog_marks_stalled_connection_and_closes_socket(self):
+        clock = Mock(return_value=0.0)
+        status = ConnectionStatus(('a',), clock=clock)
+        status.update('a', 'connected', 'Connected')
+        tray = object.__new__(app.TrayIndicator)
+        tray.connection_status = status
+        tray.unhealthy_since = None
+        tray.outage_notified = False
+        with patch.object(app.time, 'monotonic', return_value=21.0), \
+                patch.object(app, 'interrupt_stale_mailbox', return_value=True) as interrupt:
+            self.assertTrue(tray._health_timer())
+        interrupt.assert_called_once_with('a')
+        snapshot = status.snapshot()['a']
+        self.assertEqual(snapshot['state'], 'error')
+        self.assertIn('reconnecting', snapshot['detail'])
+
 
 class NotificationSound(unittest.TestCase):
     def setUp(self):
@@ -198,17 +214,52 @@ class StateAndUI(unittest.TestCase):
         app.save_mail_state('a', 7, 42, [42])
         review = app.PendingReview()
         review.active = True
-        review._show_next = Mock()
+        review._stop_and_return_to_indicator = Mock()
         item = {'email':'a', 'uidvalidity':7, 'uid':42, 'sender':'A <a@x>',
                 'subject':'Hello', 'date':'2026-09-14T12:00:00'}
+        review.items = app.deque([item])
         with patch.object(app.threading, 'Thread') as thread:
             review._regular_open(None, item)
             thread.assert_called_once()
         self.assertEqual(app.get_pending_uids('a'), [])
-        review._show_next.assert_called_once()
+        review._stop_and_return_to_indicator.assert_called_once()
+
+    def test_pending_open_clears_only_opened_account(self):
+        app.save_mail_state('a', 7, 42, [41, 42])
+        app.save_mail_state('b', 9, 53, [51, 52, 53])
+        items = [
+            {'email':'a', 'uidvalidity':7, 'uid':41},
+            {'email':'a', 'uidvalidity':7, 'uid':42},
+            {'email':'b', 'uidvalidity':9, 'uid':51},
+            {'email':'b', 'uidvalidity':9, 'uid':52},
+            {'email':'b', 'uidvalidity':9, 'uid':53},
+        ]
+        review = app.PendingReview()
+        review.items = app.deque(items)
+        review._stop_and_return_to_indicator = Mock()
+        with patch.object(app.threading, 'Thread'):
+            review._regular_open(None, items[0])
+        self.assertEqual(app.get_pending_uids('a'), [])
+        self.assertEqual(app.get_pending_uids('b'), [51, 52, 53])
+        self.assertEqual(app.pending_count(), 3)
+
+    def test_pending_open_preserves_mail_arriving_after_review_loaded(self):
+        app.save_mail_state('a', 7, 43, [41, 42])
+        items = [
+            {'email':'a', 'uidvalidity':7, 'uid':41},
+            {'email':'a', 'uidvalidity':7, 'uid':42},
+        ]
+        review = app.PendingReview()
+        review.items = app.deque(items)
+        review._stop_and_return_to_indicator = Mock()
+        app.add_pending_uid('a', 7, 43)
+        with patch.object(app.threading, 'Thread'):
+            review._regular_open(None, items[0])
+        self.assertEqual(app.get_pending_uids('a'), [43])
 
     def test_idle_safety_poll_is_fast(self):
-        self.assertLessEqual(app.IDLE_TIMEOUT, 15)
+        self.assertEqual(app.IDLE_TIMEOUT, 10)
+        self.assertEqual(app.CONNECTION_STALE_SECONDS, 20)
 
     def test_pending_badge_text(self):
         self.assertEqual(app.pending_badge_text(1), '1')

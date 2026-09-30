@@ -57,7 +57,7 @@ IMAP_FOLDER = YAHOO.inbox
 # only a safety poll for a delayed/missed server notification.
 IDLE_TIMEOUT = MONITOR_CONFIG.idle_timeout
 IMAP_SOCKET_TIMEOUT = MONITOR_CONFIG.socket_timeout
-CONNECTION_STALE_SECONDS = 105
+CONNECTION_STALE_SECONDS = MONITOR_CONFIG.watchdog_timeout
 POPUP_TIMEOUT_SECONDS = 30
 
 # A short IMAP reconnect inside the same running MailFlag process is
@@ -770,6 +770,33 @@ def remove_pending_uid(email, uidvalidity, uid):
     )
     refresh_indicator_async()
     return True
+
+
+def clear_pending_snapshot(email, uidvalidity, snapshot_uids):
+    """Clear only account UIDs visible when pending review was opened."""
+    snapshot = {int(uid) for uid in snapshot_uids}
+    if not snapshot:
+        return 0
+
+    with STATE_LOCK:
+        store = _read_store_unlocked()
+        state = store["accounts"].get(email)
+        if not state or int(state["uidvalidity"]) != int(uidvalidity):
+            return 0
+        pending = set(state.get("pending_uids", []))
+        removed = pending & snapshot
+        if not removed:
+            return 0
+        state["pending_uids"] = sorted(pending - removed)
+        store["accounts"][email] = state
+        _write_store_unlocked(store)
+
+    print(
+        f"[{email}] Opened account mail; cleared {len(removed)} "
+        f"existing pending reminder(s). Total pending: {pending_count()}"
+    )
+    refresh_indicator_async()
+    return len(removed)
 
 
 def _save_checkpoint_and_pending(
@@ -2279,12 +2306,23 @@ class PendingReview:
 
     def _regular_open(self, _button, item):
         self._cancel_timeout()
+        account_uids = {
+            queued["uid"]
+            for queued in self.items
+            if queued["email"] == item["email"]
+            and int(queued["uidvalidity"]) == int(item["uidvalidity"])
+        }
+        account_uids.add(item["uid"])
+        clear_pending_snapshot(
+            item["email"], item["uidvalidity"], account_uids
+        )
         threading.Thread(
             target=open_default_mail_app,
             daemon=True,
         ).start()
-        # The message itself is untouched, but this local reminder is handled.
-        self._finish_current(item)
+        # Open means the user will review this account's mailbox. Other
+        # accounts and mail that arrived after this review opened stay pending.
+        self._stop_and_return_to_indicator()
 
     def _regular_delete(self, _button, item):
         threading.Thread(
@@ -2635,7 +2673,7 @@ def main():
         CONNECTION_STATUS.update(email, "error", detail)
 
     print()
-    print("MailFlag v0.12.2")
+    print("MailFlag v0.12.3")
     print(f"Accounts configured: {len(accounts)}")
     for email in accounts:
         suffix = "" if email in credentials else " (keyring unavailable)"

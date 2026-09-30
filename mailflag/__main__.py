@@ -6,7 +6,7 @@ from .platform import get_platform
 
 def main():
     if '--version' in sys.argv:
-        print('MailFlag 0.12.2')
+        print('MailFlag 0.12.3')
         return
     if '--add-account' in sys.argv:
         from . import setup_account

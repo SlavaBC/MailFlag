@@ -10,9 +10,17 @@ from .session import reconnect_is_live
 
 @dataclass(frozen=True)
 class MonitorConfig:
-    idle_timeout: int = 15
-    socket_timeout: int = 30
+    idle_timeout: int = 10
+    socket_timeout: int = 15
+    watchdog_timeout: int = 20
+    reconnect_delays: tuple[int, ...] = (3, 5, 10, 20, 40, 60)
     short_reconnect_seconds: int = 90
+
+
+def reconnect_delay(config, consecutive_failures):
+    """Return bounded reconnect backoff, starting with a fast recovery."""
+    index = min(max(0, int(consecutive_failures)), len(config.reconnect_delays) - 1)
+    return config.reconnect_delays[index]
 
 
 class MonitorEvents(Protocol):
@@ -33,6 +41,7 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
     first_connection = True
     reconnect_started_wall = None
     reconnect_was_suspend = False
+    consecutive_failures = 0
     while True:
         operation_clock = platform.power_clock_snapshot()
         mailbox = None
@@ -72,7 +81,12 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                     new_uidnext = int(status["UIDNEXT"])
                     if new_validity != uidvalidity:
                         raise RuntimeError(f"{provider.inbox} UIDVALIDITY changed")
-                    events.connection_changed(account, "connected", "Connected")
+                    consecutive_failures = 0
+                    events.connection_changed(
+                        account,
+                        "connected",
+                        f"Checked {time.strftime('%H:%M:%S')}",
+                    )
                     if gap > suspend_gap_seconds:
                         events.resumed(account, gap)
                         handled = events.recover_pending(
@@ -97,9 +111,11 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
             if str(exc).strip():
                 detail += f": {str(exc).strip()}"
             events.connection_changed(account, "error", detail[:90])
-            events.interrupted(account, exc, 15)
+            delay = reconnect_delay(config, consecutive_failures)
+            consecutive_failures += 1
+            events.interrupted(account, exc, delay)
             retry_clock = platform.power_clock_snapshot()
-            reconnect_event.wait(15)
+            reconnect_event.wait(delay)
             reconnect_event.clear()
             events.connection_changed(account, "connecting", "Reconnecting")
             try:
@@ -109,5 +125,5 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                 pass
 
 
-__all__ = ["MonitorConfig", "MonitorEvents", "run_account_monitor",
+__all__ = ["MonitorConfig", "MonitorEvents", "reconnect_delay", "run_account_monitor",
            "classify_delivery", "uid_window"]

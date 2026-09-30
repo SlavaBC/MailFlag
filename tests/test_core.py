@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 from mailflag.core.delivery import DeliveryClass, classify_delivery, uid_window
 from mailflag.core.models import AccountProfile, MessageIdentity
-from mailflag.core.monitor import MonitorConfig
+from mailflag.core.monitor import MonitorConfig, reconnect_delay
 from mailflag.core.otp import MIN_CONFIDENCE, confidence, extract_code
 from mailflag.core.accounts import configured_emails
 from mailflag.core.actions import move_exact
@@ -39,7 +39,17 @@ class PortableCore(unittest.TestCase):
         self.assertEqual(YAHOO.spam_folder, 'Bulk')
 
     def test_monitor_config_is_platform_neutral(self):
-        self.assertEqual(MonitorConfig().idle_timeout, 15)
+        config = MonitorConfig()
+        self.assertEqual(config.idle_timeout, 10)
+        self.assertEqual(config.socket_timeout, 15)
+        self.assertEqual(config.watchdog_timeout, 20)
+
+    def test_reconnect_backoff_is_fast_then_bounded(self):
+        config = MonitorConfig()
+        self.assertEqual(
+            [reconnect_delay(config, index) for index in range(8)],
+            [3, 5, 10, 20, 40, 60, 60, 60],
+        )
 
     def test_otp_true_and_false(self):
         self.assertEqual(extract_code('Your verification code is 482913', ''),
