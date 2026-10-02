@@ -1,6 +1,8 @@
 """Provider-neutral IMAP monitor configuration and callback contract."""
 
 from dataclasses import dataclass
+from contextlib import contextmanager
+import re
 from typing import Protocol
 import time
 
@@ -38,6 +40,63 @@ def _diagnostic(events, account, event, **fields):
             pass
 
 
+def _imap_response_number(client, name):
+    """Read a numeric response code produced by SELECT/EXAMINE, if available."""
+    try:
+        _kind, values = client.response(name)
+    except Exception:
+        return None
+    for value in values or ():
+        match = re.search(rb"\d+", value if isinstance(value, bytes)
+                          else str(value).encode("ascii", "ignore"))
+        if match:
+            return int(match.group())
+    return None
+
+
+def refresh_folder_status(mailbox, folder):
+    """Force a fresh EXAMINE and return authoritative mailbox identity/state.
+
+    Yahoo can keep answering STATUS successfully while returning an old UIDNEXT
+    on a long-lived connection.  EXAMINE refreshes the selected mailbox; its
+    UID response codes are preferred, with STATUS only as a compatibility
+    fallback for IMAP implementations that do not expose those codes.
+    """
+    # EXAMINE (readonly SELECT) refreshes state without ever expunging messages
+    # that another client may have marked as deleted.
+    mailbox.folder.set(folder, readonly=True)
+    result = {
+        name: _imap_response_number(mailbox.client, name)
+        for name in ("UIDVALIDITY", "UIDNEXT")
+    }
+    missing = [name for name, value in result.items() if value is None]
+    if missing:
+        fallback = mailbox.folder.status(folder)
+        for name in missing:
+            result[name] = int(fallback[name])
+    return result
+
+
+@contextmanager
+def _mailbox_session(mailbox, events, account):
+    """Log out without allowing a cleanup error to hide the real failure."""
+    try:
+        yield mailbox
+    except BaseException:
+        try:
+            mailbox.logout()
+        except Exception as cleanup_error:
+            _diagnostic(
+                events, account, "logout_error",
+                error=type(cleanup_error).__name__,
+                detail=str(cleanup_error).strip()[:160],
+                original_error_preserved=True,
+            )
+        raise
+    else:
+        mailbox.logout()
+
+
 def run_account_monitor(account, password, provider, mailbox_factory, platform,
                         events, reconnect_event, config=MonitorConfig(),
                         suspend_gap_seconds=5.0):
@@ -57,11 +116,12 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
         connect_started = time.monotonic()
         _diagnostic(events, account, "connect_start")
         try:
-            with mailbox_factory(provider.imap_host, timeout=config.socket_timeout).login(
-                account, password, initial_folder=provider.inbox,
-            ) as mailbox:
+            mailbox = mailbox_factory(
+                provider.imap_host, timeout=config.socket_timeout
+            ).login(account, password, initial_folder=None)
+            with _mailbox_session(mailbox, events, account):
                 events.register_mailbox(account, mailbox)
-                status = mailbox.folder.status(provider.inbox)
+                status = refresh_folder_status(mailbox, provider.inbox)
                 uidvalidity = int(status["UIDVALIDITY"])
                 uidnext = int(status["UIDNEXT"])
                 last_seen_uidnext = uidnext
@@ -100,11 +160,11 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                     )
                     gap = platform.suspend_gap_since(idle_clock)
                     status_started = time.monotonic()
-                    status = mailbox.folder.status(provider.inbox)
+                    status = refresh_folder_status(mailbox, provider.inbox)
                     new_validity = int(status["UIDVALIDITY"])
                     new_uidnext = int(status["UIDNEXT"])
                     _diagnostic(
-                        events, account, "status_ok",
+                        events, account, "folder_refresh",
                         seconds=round(time.monotonic() - status_started, 3),
                         uidnext=new_uidnext,
                         uidnext_changed=new_uidnext != last_seen_uidnext,
@@ -163,5 +223,6 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                 pass
 
 
-__all__ = ["MonitorConfig", "MonitorEvents", "reconnect_delay", "run_account_monitor",
+__all__ = ["MonitorConfig", "MonitorEvents", "reconnect_delay", "refresh_folder_status",
+           "run_account_monitor",
            "classify_delivery", "uid_window"]

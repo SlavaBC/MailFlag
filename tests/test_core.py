@@ -9,7 +9,9 @@ from unittest.mock import Mock
 
 from mailflag.core.delivery import DeliveryClass, classify_delivery, uid_window
 from mailflag.core.models import AccountProfile, MessageIdentity
-from mailflag.core.monitor import MonitorConfig, reconnect_delay
+from mailflag.core.monitor import (
+    MonitorConfig, _mailbox_session, reconnect_delay, refresh_folder_status,
+)
 from mailflag.core.otp import MIN_CONFIDENCE, confidence, extract_code
 from mailflag.core.accounts import configured_emails
 from mailflag.core.actions import move_exact
@@ -50,6 +52,41 @@ class PortableCore(unittest.TestCase):
             [reconnect_delay(config, index) for index in range(8)],
             [3, 5, 10, 20, 40, 60, 60, 60],
         )
+
+    def test_folder_refresh_prefers_fresh_select_response_codes(self):
+        box = Mock()
+        box.client.response.side_effect = [
+            ("UIDVALIDITY", [b"7"]),
+            ("UIDNEXT", [b"346"]),
+        ]
+        box.folder.status.return_value = {"UIDVALIDITY": 7, "UIDNEXT": 345}
+        self.assertEqual(
+            refresh_folder_status(box, "INBOX"),
+            {"UIDVALIDITY": 7, "UIDNEXT": 346},
+        )
+        box.folder.set.assert_called_once_with("INBOX", readonly=True)
+        box.folder.status.assert_not_called()
+
+    def test_folder_refresh_falls_back_to_status(self):
+        box = Mock()
+        box.client.response.side_effect = [(None, None), (None, None)]
+        box.folder.status.return_value = {"UIDVALIDITY": 7, "UIDNEXT": 346}
+        self.assertEqual(
+            refresh_folder_status(box, "INBOX"),
+            {"UIDVALIDITY": 7, "UIDNEXT": 346},
+        )
+
+    def test_logout_error_does_not_hide_original_connection_error(self):
+        box = Mock()
+        box.logout.side_effect = OSError("logout EOF")
+        events = Mock()
+        with self.assertRaisesRegex(RuntimeError, "original failure"):
+            with _mailbox_session(box, events, "a@example.test"):
+                raise RuntimeError("original failure")
+        events.diagnostic.assert_called_once()
+        args, fields = events.diagnostic.call_args
+        self.assertEqual(args[:2], ("a@example.test", "logout_error"))
+        self.assertTrue(fields["original_error_preserved"])
 
     def test_otp_true_and_false(self):
         self.assertEqual(extract_code('Your verification code is 482913', ''),

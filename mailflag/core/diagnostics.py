@@ -82,7 +82,7 @@ def latest_delivery_summary(events):
     uid = parsed.get("uid")
     status = next(
         (item for item in reversed(events[:parsed_index])
-         if item.get("event") == "status_ok"
+         if item.get("event") in {"status_ok", "folder_refresh"}
          and item.get("account") == account
          and item.get("uidnext_changed")),
         None,

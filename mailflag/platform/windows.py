@@ -9,5 +9,5 @@ class WindowsPlatform(PlatformServices):
     def __init__(self):
         raise NotImplementedError(
             "Windows platform services are specified in WINDOWS_PORT.md but "
-            "are intentionally not implemented in MailFlag 0.12.4"
+            "are intentionally not implemented in MailFlag 0.12.5"
         )

@@ -1,6 +1,18 @@
-# MailFlag 0.12.4
+# MailFlag 0.12.5
 
-MailFlag 0.12.4 добавляет постоянную диагностику задержки доставки, чтобы точно
+MailFlag 0.12.5 исправляет обнаруженную диагностикой задержку Yahoo: долгоживущая
+IMAP-сессия могла успешно отвечать на `STATUS`, но возвращать устаревший `UIDNEXT`.
+
+## Изменения 0.12.5
+
+- Каждый десятисекундный контрольный цикл повторно выбирает `INBOX` через безопасный
+  read-only `EXAMINE`.
+- `UIDNEXT` и `UIDVALIDITY` берутся из свежего ответа `EXAMINE`; `STATUS` остался как совместимый fallback.
+- Ошибка `LOGOUT` больше не маскирует первоначальную причину разрыва; cleanup-ошибка пишется
+  отдельным событием `logout_error`.
+- Диагностика 0.12.4 сохранена; свежая проверка папки записывается как `folder_refresh`.
+
+MailFlag 0.12.4 добавил постоянную диагностику задержки доставки, чтобы точно
 разделить время Yahoo IMAP, IDLE/STATUS, FETCH и показа popup.
 
 ## Изменения 0.12.4
@@ -22,7 +34,7 @@ Send и дождитесь popup. Затем выполните:
 ~/.local/bin/mailflag --diagnostics
 ```
 
-Событие `status_ok uidnext_changed=True` покажет момент появления письма на
+Событие `folder_refresh uidnext_changed=True` покажет момент появления письма на
 Yahoo IMAP. `fetch_complete`, `message_parsed` и `ui_dispatch` покажут задержки
 внутри MailFlag.
 
@@ -220,7 +232,7 @@ PYTHONPATH=vendor:. python3 -m unittest discover -s tests -p 'test_otp_detector.
 sudo apt install python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 libsecret-tools pulseaudio-utils
 ```
 
-Распакуйте архив, откройте терминал в папке `mailflag-0.12.4` и выполните:
+Распакуйте архив, откройте терминал в папке `mailflag-0.12.5` и выполните:
 
 ```sh
 ./install.sh

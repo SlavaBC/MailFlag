@@ -2695,7 +2695,7 @@ def imap_worker(email, password):
 def main():
     global APP_ACCOUNTS, CONNECTION_STATUS, tray_indicator
 
-    log_diagnostic("app_start", version="0.12.4")
+    log_diagnostic("app_start", version="0.12.5")
     try:
         accounts = load_accounts()
     except Exception as exc:
@@ -2735,7 +2735,7 @@ def main():
         CONNECTION_STATUS.update(email, "error", detail)
 
     print()
-    print("MailFlag v0.12.4")
+    print("MailFlag v0.12.5")
     print(f"Accounts configured: {len(accounts)}")
     for email in accounts:
         suffix = "" if email in credentials else " (keyring unavailable)"

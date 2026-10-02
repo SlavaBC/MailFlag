@@ -37,7 +37,7 @@ class DiagnosticsTests(unittest.TestCase):
 
     def test_latest_delivery_timing_summary(self):
         events = [
-            {"epoch": 100.0, "event": "status_ok", "account": "a",
+            {"epoch": 100.0, "event": "folder_refresh", "account": "a",
              "uidnext_changed": True},
             {"epoch": 100.2, "event": "message_parsed", "account": "a",
              "uid": 42, "kind": "otp", "header_age_seconds": 121.0},

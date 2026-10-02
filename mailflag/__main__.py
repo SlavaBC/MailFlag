@@ -7,7 +7,7 @@ from .core.diagnostics import format_report
 
 def main():
     if '--version' in sys.argv:
-        print('MailFlag 0.12.4')
+        print('MailFlag 0.12.5')
         return
     if '--diagnostics' in sys.argv:
         path = get_platform().paths.config_dir / 'diagnostics.jsonl'
