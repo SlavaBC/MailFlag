@@ -29,6 +29,15 @@ class MonitorEvents(Protocol):
     def connection_changed(self, account, state, detail=""): ...
 
 
+def _diagnostic(events, account, event, **fields):
+    callback = getattr(events, "diagnostic", None)
+    if callback is not None:
+        try:
+            callback(account, event, **fields)
+        except Exception:
+            pass
+
+
 def run_account_monitor(account, password, provider, mailbox_factory, platform,
                         events, reconnect_event, config=MonitorConfig(),
                         suspend_gap_seconds=5.0):
@@ -45,6 +54,8 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
     while True:
         operation_clock = platform.power_clock_snapshot()
         mailbox = None
+        connect_started = time.monotonic()
+        _diagnostic(events, account, "connect_start")
         try:
             with mailbox_factory(provider.imap_host, timeout=config.socket_timeout).login(
                 account, password, initial_folder=provider.inbox,
@@ -53,6 +64,12 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                 status = mailbox.folder.status(provider.inbox)
                 uidvalidity = int(status["UIDVALIDITY"])
                 uidnext = int(status["UIDNEXT"])
+                last_seen_uidnext = uidnext
+                _diagnostic(
+                    events, account, "connect_ok",
+                    seconds=round(time.monotonic() - connect_started, 3),
+                    uidnext=uidnext,
+                )
                 events.connection_changed(account, "connected", "Connected")
                 events.connected(account, mailbox, uidvalidity, uidnext)
 
@@ -74,11 +91,25 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
 
                 while True:
                     idle_clock = platform.power_clock_snapshot()
+                    idle_started = time.monotonic()
                     responses = mailbox.idle.wait(timeout=config.idle_timeout)
+                    _diagnostic(
+                        events, account, "idle_return",
+                        seconds=round(time.monotonic() - idle_started, 3),
+                        response_count=len(responses),
+                    )
                     gap = platform.suspend_gap_since(idle_clock)
+                    status_started = time.monotonic()
                     status = mailbox.folder.status(provider.inbox)
                     new_validity = int(status["UIDVALIDITY"])
                     new_uidnext = int(status["UIDNEXT"])
+                    _diagnostic(
+                        events, account, "status_ok",
+                        seconds=round(time.monotonic() - status_started, 3),
+                        uidnext=new_uidnext,
+                        uidnext_changed=new_uidnext != last_seen_uidnext,
+                        suspend_gap=round(gap, 3),
+                    )
                     if new_validity != uidvalidity:
                         raise RuntimeError(f"{provider.inbox} UIDVALIDITY changed")
                     consecutive_failures = 0
@@ -98,6 +129,7 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                         )
                     if not responses and handled == 0:
                         events.heartbeat(account)
+                    last_seen_uidnext = new_uidnext
         except Exception as exc:
             events.unregister_mailbox(account, mailbox)
             try:
@@ -113,6 +145,12 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
             events.connection_changed(account, "error", detail[:90])
             delay = reconnect_delay(config, consecutive_failures)
             consecutive_failures += 1
+            _diagnostic(
+                events, account, "connection_error",
+                error=type(exc).__name__,
+                detail=str(exc).strip()[:160],
+                reconnect_seconds=delay,
+            )
             events.interrupted(account, exc, delay)
             retry_clock = platform.power_clock_snapshot()
             reconnect_event.wait(delay)

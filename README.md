@@ -1,9 +1,35 @@
-# MailFlag 0.12.3
+# MailFlag 0.12.4
+
+MailFlag 0.12.4 добавляет постоянную диагностику задержки доставки, чтобы точно
+разделить время Yahoo IMAP, IDLE/STATUS, FETCH и показа popup.
+
+## Изменения 0.12.4
+
+- Безопасный журнал `~/.config/mailflag/diagnostics.jsonl` не содержит тело,
+  тему письма, пароль или OTP-код.
+- Записываются подключения, возвраты IDLE, продолжительность STATUS, изменения
+  UIDNEXT, диапазоны новых UID, продолжительность FETCH, разбор письма, возраст
+  заголовка Date, передача popup в UI, watchdog и ошибки соединения.
+- Журнал ограничен 2 МБ и автоматически ротируется в `diagnostics.jsonl.1`.
+- Команда `~/.local/bin/mailflag --diagnostics` выводит последние 200 событий.
+
+### Контрольный эксперимент
+
+После установки и перезапуска отправьте одно письмо, запишите время нажатия
+Send и дождитесь popup. Затем выполните:
+
+```sh
+~/.local/bin/mailflag --diagnostics
+```
+
+Событие `status_ok uidnext_changed=True` покажет момент появления письма на
+Yahoo IMAP. `fetch_complete`, `message_parsed` и `ui_dispatch` покажут задержки
+внутри MailFlag.
+
+## Изменения 0.12.3
 
 MailFlag 0.12.3 быстрее обнаруживает зависшие IMAP-соединения и очищает pending
 по открытому аккаунту.
-
-## Изменения 0.12.3
 
 - IDLE остаётся основным почти мгновенным механизмом. Контрольный цикл выполняется
   раз в 10 секунд, сетевой тайм-аут ограничен 15 секундами.
@@ -194,7 +220,7 @@ PYTHONPATH=vendor:. python3 -m unittest discover -s tests -p 'test_otp_detector.
 sudo apt install python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 libsecret-tools pulseaudio-utils
 ```
 
-Распакуйте архив, откройте терминал в папке `mailflag-0.12.3` и выполните:
+Распакуйте архив, откройте терминал в папке `mailflag-0.12.4` и выполните:
 
 ```sh
 ./install.sh

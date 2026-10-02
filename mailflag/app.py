@@ -11,6 +11,7 @@ import socket
 import subprocess
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import gi
@@ -22,6 +23,7 @@ from gi.repository import AyatanaAppIndicator3, Gdk, GdkPixbuf, GLib, Gtk, Pango
 from imap_tools import MailBox
 from .core.actions import mark_exact_read, move_exact, named_folder, special_folder
 from .core.monitor import MonitorConfig, run_account_monitor
+from .core.diagnostics import DiagnosticLog
 from .core.accounts import configured_emails
 from .core.state import normalize_account, read_store, write_store
 from .core.otp import (
@@ -73,12 +75,33 @@ SUSPEND_GAP_SECONDS = 5.0
 CONFIG_DIR = PLATFORM.paths.config_dir
 CONFIG_FILE = PLATFORM.paths.config_file
 STATE_FILE = PLATFORM.paths.state_file
+DIAGNOSTIC_FILE = CONFIG_DIR / "diagnostics.jsonl"
+DIAGNOSTICS = DiagnosticLog(DIAGNOSTIC_FILE)
 INDICATOR_ICON = Path(__file__).with_name("mailflag-pending-icon.png")
 APPLICATION_ICON = Path(__file__).with_name("mailflag-app-icon.png")
 STATUS_ICONS = {
     state: Path(__file__).with_name(f"mailflag-{state}.svg")
     for state in ("online", "connecting", "partial", "offline")
 }
+
+
+def log_diagnostic(event, account="", **fields):
+    try:
+        DIAGNOSTICS.write(event, account, **fields)
+    except Exception:
+        pass
+
+
+def _header_age_seconds(value):
+    if not value:
+        return None
+    try:
+        sent = datetime.fromisoformat(value)
+        if sent.tzinfo is None:
+            sent = sent.replace(tzinfo=timezone.utc)
+        return round((datetime.now(timezone.utc) - sent).total_seconds(), 3)
+    except (TypeError, ValueError, OverflowError):
+        return None
 RECONNECT_EVENT = threading.Event()
 CONNECTION_STATUS = None
 tray_indicator = None
@@ -918,7 +941,11 @@ def show_live_message_ui(
     A simultaneous second arrival becomes pending instead of stacking.
     """
     play_notification()
-    if notification_is_busy():
+    busy = notification_is_busy()
+    log_diagnostic(
+        "ui_dispatch", email, uid=int(uid), kind=kind, busy=busy
+    )
+    if busy:
         print(
             f"[{email}] Live UID {uid} arrived while MailFlag UI was busy; "
             "adding it to the persistent indicator."
@@ -949,6 +976,14 @@ def process_live_message(
     uid = int(msg.uid)
     reference = _message_reference(msg, sender, subject)
     save_message_reference(email, uidvalidity, uid, reference)
+    log_diagnostic(
+        "message_parsed",
+        email,
+        uid=uid,
+        kind="otp" if code else "regular",
+        header_date=reference["date"],
+        header_age_seconds=_header_age_seconds(reference["date"]),
+    )
 
     print()
     print("-" * 60)
@@ -1021,6 +1056,13 @@ def process_live_new_messages(
         return 0
 
     first_uid = last_processed + 1
+    log_diagnostic(
+        "new_uid_range",
+        email,
+        first_uid=first_uid,
+        last_uid=target_last_uid,
+        uidnext=int(current_uidnext),
+    )
     total = 0
     batch_size = 100
     batch_start = first_uid
@@ -1028,6 +1070,7 @@ def process_live_new_messages(
     while batch_start <= target_last_uid:
         batch_end = min(batch_start + batch_size - 1, target_last_uid)
 
+        fetch_started = time.monotonic()
         messages = list(
             mailbox.fetch(
                 uid_list=[
@@ -1036,6 +1079,14 @@ def process_live_new_messages(
                 ],
                 mark_seen=False,
             )
+        )
+        log_diagnostic(
+            "fetch_complete",
+            email,
+            first_uid=batch_start,
+            last_uid=batch_end,
+            message_count=len(messages),
+            seconds=round(time.monotonic() - fetch_started, 3),
         )
         messages.sort(key=lambda msg: int(msg.uid))
 
@@ -1688,6 +1739,13 @@ class TrayIndicator:
         for email in stale_connected_accounts(
             snapshot, now, CONNECTION_STALE_SECONDS
         ):
+            log_diagnostic(
+                "watchdog_interrupt",
+                email,
+                overdue_seconds=round(
+                    now - snapshot[email]["last_connected_at"], 3
+                ),
+            )
             self.connection_status.update(
                 email,
                 "error",
@@ -2584,6 +2642,9 @@ class _GtkMonitorEvents:
     def connection_changed(self, account, state, detail=""):
         set_connection_state(account, state, detail)
 
+    def diagnostic(self, account, event, **fields):
+        log_diagnostic(event, account, **fields)
+
     def register_mailbox(self, account, mailbox):
         register_active_mailbox(account, mailbox)
 
@@ -2634,6 +2695,7 @@ def imap_worker(email, password):
 def main():
     global APP_ACCOUNTS, CONNECTION_STATUS, tray_indicator
 
+    log_diagnostic("app_start", version="0.12.4")
     try:
         accounts = load_accounts()
     except Exception as exc:
@@ -2673,7 +2735,7 @@ def main():
         CONNECTION_STATUS.update(email, "error", detail)
 
     print()
-    print("MailFlag v0.12.3")
+    print("MailFlag v0.12.4")
     print(f"Accounts configured: {len(accounts)}")
     for email in accounts:
         suffix = "" if email in credentials else " (keyring unavailable)"

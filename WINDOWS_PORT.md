@@ -1,6 +1,6 @@
 # Future Windows port
 
-MailFlag 0.12.3 remains an architectural preparation release, not a Windows build.
+MailFlag 0.12.4 remains an architectural preparation release, not a Windows build.
 The portable domain code lives in `mailflag/core`, provider data in
 `mailflag/providers`, and operating-system operations behind
 `mailflag/platform/base.py`.
