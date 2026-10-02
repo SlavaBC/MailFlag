@@ -76,17 +76,12 @@ class PortableCore(unittest.TestCase):
             {"UIDVALIDITY": 7, "UIDNEXT": 346},
         )
 
-    def test_logout_error_does_not_hide_original_connection_error(self):
+    def test_logout_cleanup_does_not_hide_original_connection_error(self):
         box = Mock()
         box.logout.side_effect = OSError("logout EOF")
-        events = Mock()
         with self.assertRaisesRegex(RuntimeError, "original failure"):
-            with _mailbox_session(box, events, "a@example.test"):
+            with _mailbox_session(box):
                 raise RuntimeError("original failure")
-        events.diagnostic.assert_called_once()
-        args, fields = events.diagnostic.call_args
-        self.assertEqual(args[:2], ("a@example.test", "logout_error"))
-        self.assertTrue(fields["original_error_preserved"])
 
     def test_otp_true_and_false(self):
         self.assertEqual(extract_code('Your verification code is 482913', ''),

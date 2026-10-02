@@ -2,16 +2,11 @@
 import fcntl
 import sys
 from .platform import get_platform
-from .core.diagnostics import format_report
 
 
 def main():
     if '--version' in sys.argv:
-        print('MailFlag 0.12.5')
-        return
-    if '--diagnostics' in sys.argv:
-        path = get_platform().paths.config_dir / 'diagnostics.jsonl'
-        print(format_report(path))
+        print('MailFlag 0.12.6')
         return
     if '--add-account' in sys.argv:
         from . import setup_account

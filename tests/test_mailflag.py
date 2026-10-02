@@ -104,8 +104,7 @@ class ConnectionHealth(unittest.TestCase):
         tray.unhealthy_since = None
         tray.outage_notified = False
         with patch.object(app.time, 'monotonic', return_value=21.0), \
-                patch.object(app, 'interrupt_stale_mailbox', return_value=True) as interrupt, \
-                patch.object(app, 'log_diagnostic'):
+                patch.object(app, 'interrupt_stale_mailbox', return_value=True) as interrupt:
             self.assertTrue(tray._health_timer())
         interrupt.assert_called_once_with('a')
         snapshot = status.snapshot()['a']
@@ -187,7 +186,6 @@ class StateAndUI(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.patches = [patch.object(app,'CONFIG_DIR',Path(self.tmp.name)),
                         patch.object(app,'STATE_FILE',Path(self.tmp.name)/'state.json'),
-                        patch.object(app,'DIAGNOSTICS',Mock()),
                         patch.object(app,'refresh_indicator_async')]
         for p in self.patches:
             p.start()

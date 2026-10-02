@@ -31,15 +31,6 @@ class MonitorEvents(Protocol):
     def connection_changed(self, account, state, detail=""): ...
 
 
-def _diagnostic(events, account, event, **fields):
-    callback = getattr(events, "diagnostic", None)
-    if callback is not None:
-        try:
-            callback(account, event, **fields)
-        except Exception:
-            pass
-
-
 def _imap_response_number(client, name):
     """Read a numeric response code produced by SELECT/EXAMINE, if available."""
     try:
@@ -78,20 +69,15 @@ def refresh_folder_status(mailbox, folder):
 
 
 @contextmanager
-def _mailbox_session(mailbox, events, account):
+def _mailbox_session(mailbox):
     """Log out without allowing a cleanup error to hide the real failure."""
     try:
         yield mailbox
     except BaseException:
         try:
             mailbox.logout()
-        except Exception as cleanup_error:
-            _diagnostic(
-                events, account, "logout_error",
-                error=type(cleanup_error).__name__,
-                detail=str(cleanup_error).strip()[:160],
-                original_error_preserved=True,
-            )
+        except Exception:
+            pass
         raise
     else:
         mailbox.logout()
@@ -113,23 +99,15 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
     while True:
         operation_clock = platform.power_clock_snapshot()
         mailbox = None
-        connect_started = time.monotonic()
-        _diagnostic(events, account, "connect_start")
         try:
             mailbox = mailbox_factory(
                 provider.imap_host, timeout=config.socket_timeout
             ).login(account, password, initial_folder=None)
-            with _mailbox_session(mailbox, events, account):
+            with _mailbox_session(mailbox):
                 events.register_mailbox(account, mailbox)
                 status = refresh_folder_status(mailbox, provider.inbox)
                 uidvalidity = int(status["UIDVALIDITY"])
                 uidnext = int(status["UIDNEXT"])
-                last_seen_uidnext = uidnext
-                _diagnostic(
-                    events, account, "connect_ok",
-                    seconds=round(time.monotonic() - connect_started, 3),
-                    uidnext=uidnext,
-                )
                 events.connection_changed(account, "connected", "Connected")
                 events.connected(account, mailbox, uidvalidity, uidnext)
 
@@ -151,25 +129,11 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
 
                 while True:
                     idle_clock = platform.power_clock_snapshot()
-                    idle_started = time.monotonic()
                     responses = mailbox.idle.wait(timeout=config.idle_timeout)
-                    _diagnostic(
-                        events, account, "idle_return",
-                        seconds=round(time.monotonic() - idle_started, 3),
-                        response_count=len(responses),
-                    )
                     gap = platform.suspend_gap_since(idle_clock)
-                    status_started = time.monotonic()
                     status = refresh_folder_status(mailbox, provider.inbox)
                     new_validity = int(status["UIDVALIDITY"])
                     new_uidnext = int(status["UIDNEXT"])
-                    _diagnostic(
-                        events, account, "folder_refresh",
-                        seconds=round(time.monotonic() - status_started, 3),
-                        uidnext=new_uidnext,
-                        uidnext_changed=new_uidnext != last_seen_uidnext,
-                        suspend_gap=round(gap, 3),
-                    )
                     if new_validity != uidvalidity:
                         raise RuntimeError(f"{provider.inbox} UIDVALIDITY changed")
                     consecutive_failures = 0
@@ -189,7 +153,6 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                         )
                     if not responses and handled == 0:
                         events.heartbeat(account)
-                    last_seen_uidnext = new_uidnext
         except Exception as exc:
             events.unregister_mailbox(account, mailbox)
             try:
@@ -205,12 +168,6 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
             events.connection_changed(account, "error", detail[:90])
             delay = reconnect_delay(config, consecutive_failures)
             consecutive_failures += 1
-            _diagnostic(
-                events, account, "connection_error",
-                error=type(exc).__name__,
-                detail=str(exc).strip()[:160],
-                reconnect_seconds=delay,
-            )
             events.interrupted(account, exc, delay)
             retry_clock = platform.power_clock_snapshot()
             reconnect_event.wait(delay)
