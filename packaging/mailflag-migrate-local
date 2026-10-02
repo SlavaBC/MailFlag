@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+remove_if_legacy() {
+  path=$1
+  if [ -f "$path" ] && grep -q '\.local/share/mailflag/current' "$path"; then
+    rm -f "$path"
+    printf 'Removed legacy launcher: %s\n' "$path"
+  fi
+}
+remove_if_legacy "$HOME/.local/bin/mailflag"
+remove_if_legacy "$HOME/.local/share/applications/mailflag.desktop"
+remove_if_legacy "$HOME/.config/autostart/mailflag.desktop"
+printf '%s\n' 'Legacy launchers removed. User config, state, releases and keyring credentials were preserved.'

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=MailFlag
+GenericName=Mail notifier
+Comment=Fast multi-account Yahoo mail and OTP notifications
+Exec=/usr/bin/mailflag
+Icon=mailflag
+Terminal=false
+Categories=Network;Email;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

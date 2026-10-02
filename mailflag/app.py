@@ -22,7 +22,7 @@ from gi.repository import AyatanaAppIndicator3, Gdk, GdkPixbuf, GLib, Gtk, Pango
 from imap_tools import MailBox
 from .core.actions import mark_exact_read, move_exact, named_folder, special_folder
 from .core.monitor import MonitorConfig, run_account_monitor
-from .core.accounts import configured_emails
+from .core.accounts import configured_emails, configured_folders
 from .core.state import normalize_account, read_store, write_store
 from .core.otp import (
     MIN_CONFIDENCE as OTP_MIN_CONFIDENCE,
@@ -47,6 +47,7 @@ from .core.session import reconnect_is_live
 from .core.status import ConnectionStatus, stale_connected_accounts
 from .platform import get_platform
 from .providers import YAHOO
+from .version import __version__
 
 
 PLATFORM = get_platform()
@@ -462,20 +463,22 @@ def move_exact_message_to_named_folder(
         return False
 
 
-def move_regular_to_trash(email, password, uid, uidvalidity):
+def move_regular_to_trash(email, password, uid, uidvalidity,
+                          source_folder=IMAP_FOLDER):
     return move_exact(
-        MailBox, IMAP_HOST, IMAP_FOLDER, email, password, uid, uidvalidity,
+        MailBox, IMAP_HOST, source_folder, email, password, uid, uidvalidity,
         special_folder(r"\Trash", {"Trash", "Deleted", "Deleted Items", "Deleted Messages"}),
     )
 
 
-def move_regular_to_spam(email, password, uid, uidvalidity):
+def move_regular_to_spam(email, password, uid, uidvalidity,
+                         source_folder=IMAP_FOLDER):
     # Yahoo exposes its web "Spam" folder over IMAP as "Bulk"
     # with the special-use flag \\Junk.  On this account imap-tools'
     # high-level folder.list() does not surface that system folder,
     # so use the verified Yahoo IMAP folder name directly.
     return move_exact(
-        MailBox, IMAP_HOST, IMAP_FOLDER, email, password, uid, uidvalidity,
+        MailBox, IMAP_HOST, source_folder, email, password, uid, uidvalidity,
         named_folder(YAHOO.spam_folder),
     )
 
@@ -504,9 +507,10 @@ def _message_reference(msg, sender="", subject=""):
     }
 
 
-def move_message_to_trash(email, password, uid, expected_uidvalidity):
+def move_message_to_trash(email, password, uid, expected_uidvalidity,
+                          source_folder=IMAP_FOLDER):
     return move_regular_to_trash(
-        email, password, uid, expected_uidvalidity
+        email, password, uid, expected_uidvalidity, source_folder
     )
 
 
@@ -527,12 +531,12 @@ def _normalize_account_state(value):
 
 def _read_store_unlocked():
     """
-    v2 state format:
+    v3 state format:
       {
-        "version": 2,
+        "version": 3,
         "accounts": {
-          "a@yahoo.com": {...},
-          "b@yahoo.com": {...}
+          "a@yahoo.com": {"folders": {"INBOX": {...}, "Amazon": {...}}},
+          "b@yahoo.com": {"folders": {"INBOX": {...}}}
         }
       }
 
@@ -561,14 +565,21 @@ def migrate_legacy_state(primary_email):
             _write_store_unlocked(store)
 
 
-def load_mail_state(email):
+def _account_state(store, email, create=False):
+    account = store["accounts"].get(email)
+    if account is None and create:
+        account = {"folders": {}, "recent_message_ids": []}
+        store["accounts"][email] = account
+    return account
+
+
+def load_mail_state(email, folder=IMAP_FOLDER):
     with STATE_LOCK:
         store = _read_store_unlocked()
-        value = store["accounts"].get(email)
-
+        account = _account_state(store, email)
+        value = account.get("folders", {}).get(folder) if account else None
         if value is None:
             return None
-
         return {
             "uidvalidity": value["uidvalidity"],
             "last_processed_uid": value["last_processed_uid"],
@@ -577,23 +588,18 @@ def load_mail_state(email):
         }
 
 
-def save_mail_state(
-    email,
-    uidvalidity,
-    last_processed_uid,
-    pending_uids=None,
-):
+def save_mail_state(email, uidvalidity, last_processed_uid,
+                    pending_uids=None, folder=IMAP_FOLDER):
     with STATE_LOCK:
         store = _read_store_unlocked()
-        old = store["accounts"].get(email)
-
+        account = _account_state(store, email, create=True)
+        old = account["folders"].get(folder)
         if pending_uids is None:
             if old and int(old["uidvalidity"]) == int(uidvalidity):
                 pending_uids = old.get("pending_uids", [])
             else:
                 pending_uids = []
-
-        store["accounts"][email] = {
+        account["folders"][folder] = {
             "uidvalidity": int(uidvalidity),
             "last_processed_uid": int(last_processed_uid),
             "pending_uids": list(pending_uids),
@@ -606,17 +612,13 @@ def save_mail_state(
         _write_store_unlocked(store)
 
 
-def initialize_or_validate_state(
-    email,
-    uidvalidity,
-    current_uidnext,
-):
+def initialize_or_validate_state(email, uidvalidity, current_uidnext,
+                                 folder=IMAP_FOLDER):
     current_last_uid = max(0, int(current_uidnext) - 1)
-
     with STATE_LOCK:
         store = _read_store_unlocked()
-        state = store["accounts"].get(email)
-
+        account = _account_state(store, email, create=True)
+        state = account["folders"].get(folder)
         if state is None:
             state = {
                 "uidvalidity": int(uidvalidity),
@@ -624,31 +626,27 @@ def initialize_or_validate_state(
                 "pending_uids": [],
                 "message_refs": {},
             }
-            store["accounts"][email] = state
+            account["folders"][folder] = state
             _write_store_unlocked(store)
-
             print(
-                f"[{email}] Mail state initialized at UID "
+                f"[{email}/{folder}] Mail state initialized at UID "
                 f"{current_last_uid}. Existing older mail will not be replayed."
             )
-            return state
-
+            return dict(state)
         if int(state["uidvalidity"]) != int(uidvalidity):
             print()
             print(
-                f"[{email}] WARNING: INBOX UIDVALIDITY changed. "
+                f"[{email}/{folder}] WARNING: UIDVALIDITY changed. "
                 "Old checkpoint/pending UIDs were reset safely."
             )
-
             state = {
                 "uidvalidity": int(uidvalidity),
                 "last_processed_uid": current_last_uid,
                 "pending_uids": [],
                 "message_refs": {},
             }
-            store["accounts"][email] = state
+            account["folders"][folder] = state
             _write_store_unlocked(store)
-
         return {
             "uidvalidity": state["uidvalidity"],
             "last_processed_uid": state["last_processed_uid"],
@@ -657,38 +655,55 @@ def initialize_or_validate_state(
         }
 
 
-def save_message_reference(email, uidvalidity, uid, reference):
-    """Persist stable RFC metadata without changing pending/checkpoint state."""
+def save_message_reference(email, uidvalidity, uid, reference,
+                           folder=IMAP_FOLDER):
+    """Persist RFC metadata inside the exact source folder state."""
     with STATE_LOCK:
         store = _read_store_unlocked()
-        state = store["accounts"].get(email)
+        account = _account_state(store, email)
+        state = account.get("folders", {}).get(folder) if account else None
         if not state or int(state["uidvalidity"]) != int(uidvalidity):
             return False
         refs = dict(state.get("message_refs", {}))
         refs[str(int(uid))] = dict(reference)
         state["message_refs"] = refs
-        store["accounts"][email] = state
+        _write_store_unlocked(store)
+    return True
+
+
+def claim_message_id(email, message_id):
+    """Deduplicate notifications across folders without affecting actions."""
+    message_id = str(message_id or "").strip()[:998]
+    if not message_id:
+        return True
+    with STATE_LOCK:
+        store = _read_store_unlocked()
+        account = _account_state(store, email, create=True)
+        recent = list(account.get("recent_message_ids", []))
+        if message_id in recent:
+            return False
+        recent.append(message_id)
+        account["recent_message_ids"] = recent[-500:]
         _write_store_unlocked(store)
     return True
 
 
 def get_pending_items():
-    """Return [(email, uid), ...] across all configured accounts."""
+    """Return [(email, folder, uid), ...] for every monitored folder."""
     with STATE_LOCK:
         store = _read_store_unlocked()
         result = []
-
-        for email, state in store["accounts"].items():
+        for email, account in store["accounts"].items():
             if email == "__legacy__":
                 continue
-            for uid in state.get("pending_uids", []):
-                result.append((email, int(uid)))
-
+            for folder, state in account.get("folders", {}).items():
+                for uid in state.get("pending_uids", []):
+                    result.append((email, folder, int(uid)))
         return result
 
 
-def get_pending_uids(email):
-    state = load_mail_state(email)
+def get_pending_uids(email, folder=IMAP_FOLDER):
+    state = load_mail_state(email, folder)
     return list(state.get("pending_uids", [])) if state else []
 
 
@@ -710,79 +725,56 @@ def refresh_indicator_async():
         GLib.idle_add(tray_indicator.refresh)
 
 
-def add_pending_uid(email, uidvalidity, uid):
+def add_pending_uid(email, uidvalidity, uid, folder=IMAP_FOLDER):
     uid = int(uid)
-
     with STATE_LOCK:
         store = _read_store_unlocked()
-        state = store["accounts"].get(email)
-
+        account = _account_state(store, email)
+        state = account.get("folders", {}).get(folder) if account else None
         if not state:
             return False
-
         if int(state["uidvalidity"]) != int(uidvalidity):
-            print(
-                f"[{email}] Pending UID {uid} ignored because "
-                "UIDVALIDITY changed."
-            )
+            print(f"[{email}/{folder}] Pending UID {uid} ignored: UIDVALIDITY changed.")
             return False
-
         pending = set(state.get("pending_uids", []))
         if uid in pending:
             return False
-
         pending.add(uid)
         state["pending_uids"] = sorted(pending)
-        store["accounts"][email] = state
         _write_store_unlocked(store)
-
-    print(
-        f"[{email}] Pending mail added: UID {uid}. "
-        f"Total pending: {pending_count()}"
-    )
+    print(f"[{email}/{folder}] Pending UID {uid}. Total pending: {pending_count()}")
     refresh_indicator_async()
     return True
 
 
-def remove_pending_uid(email, uidvalidity, uid):
+def remove_pending_uid(email, uidvalidity, uid, folder=IMAP_FOLDER):
     uid = int(uid)
-
     with STATE_LOCK:
         store = _read_store_unlocked()
-        state = store["accounts"].get(email)
-
-        if not state:
+        account = _account_state(store, email)
+        state = account.get("folders", {}).get(folder) if account else None
+        if not state or int(state["uidvalidity"]) != int(uidvalidity):
             return False
-
-        if int(state["uidvalidity"]) != int(uidvalidity):
-            return False
-
         pending = set(state.get("pending_uids", []))
         if uid not in pending:
             return False
-
         pending.remove(uid)
         state["pending_uids"] = sorted(pending)
-        store["accounts"][email] = state
         _write_store_unlocked(store)
-
-    print(
-        f"[{email}] Pending mail handled: UID {uid}. "
-        f"Total pending: {pending_count()}"
-    )
+    print(f"[{email}/{folder}] Pending handled: UID {uid}. Total: {pending_count()}")
     refresh_indicator_async()
     return True
 
 
-def clear_pending_snapshot(email, uidvalidity, snapshot_uids):
-    """Clear only account UIDs visible when pending review was opened."""
+def clear_pending_snapshot(email, uidvalidity, snapshot_uids,
+                           folder=IMAP_FOLDER):
     snapshot = {int(uid) for uid in snapshot_uids}
     if not snapshot:
         return 0
-
     with STATE_LOCK:
         store = _read_store_unlocked()
-        state = store["accounts"].get(email)
+        account = _account_state(store, email)
+        state = account.get("folders", {}).get(folder) if account else None
         if not state or int(state["uidvalidity"]) != int(uidvalidity):
             return 0
         pending = set(state.get("pending_uids", []))
@@ -790,27 +782,22 @@ def clear_pending_snapshot(email, uidvalidity, snapshot_uids):
         if not removed:
             return 0
         state["pending_uids"] = sorted(pending - removed)
-        store["accounts"][email] = state
         _write_store_unlocked(store)
-
     print(
-        f"[{email}] Opened account mail; cleared {len(removed)} "
-        f"existing pending reminder(s). Total pending: {pending_count()}"
+        f"[{email}/{folder}] Opened mail; cleared {len(removed)} reminder(s). "
+        f"Total pending: {pending_count()}"
     )
     refresh_indicator_async()
     return len(removed)
 
 
-def _save_checkpoint_and_pending(
-    email,
-    uidvalidity,
-    last_uid,
-    pending_uids,
-):
+def _save_checkpoint_and_pending(email, uidvalidity, last_uid, pending_uids,
+                                 folder=IMAP_FOLDER):
     with STATE_LOCK:
         store = _read_store_unlocked()
-        old = store["accounts"].get(email, {})
-        store["accounts"][email] = {
+        account = _account_state(store, email, create=True)
+        old = account["folders"].get(folder, {})
+        account["folders"][folder] = {
             "uidvalidity": int(uidvalidity),
             "last_processed_uid": int(last_uid),
             "pending_uids": sorted(set(int(x) for x in pending_uids)),
@@ -819,83 +806,47 @@ def _save_checkpoint_and_pending(
         _write_store_unlocked(store)
 
 
-def recover_backlog_messages(
-    mailbox,
-    email,
-    uidvalidity,
-    current_uidnext,
-):
-    """
-    Startup/reconnect/suspend backlog for ONE account.
-    No automatic popup replay; messages become pending.
-    """
-    state = initialize_or_validate_state(
-        email,
-        uidvalidity,
-        current_uidnext,
-    )
-
+def recover_backlog_messages(mailbox, email, uidvalidity, current_uidnext,
+                             folder=IMAP_FOLDER):
+    """Recover one folder as pending without replaying a popup storm."""
+    state = initialize_or_validate_state(email, uidvalidity, current_uidnext, folder)
     last_processed = int(state["last_processed_uid"])
     target_last_uid = max(0, int(current_uidnext) - 1)
-
     if target_last_uid <= last_processed:
         refresh_indicator_async()
         return 0
-
     first_uid = last_processed + 1
     pending = set(state.get("pending_uids", []))
     total_found = 0
-    batch_size = 100
     batch_start = first_uid
-
     print(
-        f"[{email}] Backlog detected: UID {first_uid} "
-        f"through {target_last_uid}. No popups will be replayed."
+        f"[{email}/{folder}] Backlog UID {first_uid} through {target_last_uid}; "
+        "no popups will be replayed."
     )
-
     while batch_start <= target_last_uid:
-        batch_end = min(batch_start + batch_size - 1, target_last_uid)
-
-        messages = list(
-            mailbox.fetch(
-                uid_list=[
-                    str(uid)
-                    for uid in range(batch_start, batch_end + 1)
-                ],
-                mark_seen=False,
-                headers_only=True,
-            )
-        )
-
+        batch_end = min(batch_start + 99, target_last_uid)
+        messages = list(mailbox.fetch(
+            uid_list=[str(uid) for uid in range(batch_start, batch_end + 1)],
+            mark_seen=False, headers_only=True,
+        ))
         for msg in messages:
-            pending.add(int(msg.uid))
-            save_message_reference(
-                email, uidvalidity, msg.uid,
-                _message_reference(
-                    msg,
-                    getattr(msg, "from_", "") or "(unknown sender)",
-                    getattr(msg, "subject", "") or "(no subject)",
-                ),
+            reference = _message_reference(
+                msg,
+                getattr(msg, "from_", "") or "(unknown sender)",
+                getattr(msg, "subject", "") or "(no subject)",
             )
-            total_found += 1
-
+            save_message_reference(email, uidvalidity, msg.uid, reference, folder)
+            if claim_message_id(email, reference["message_id"]):
+                pending.add(int(msg.uid))
+                total_found += 1
         _save_checkpoint_and_pending(
-            email,
-            uidvalidity,
-            batch_end,
-            pending,
+            email, uidvalidity, batch_end, pending, folder
         )
         batch_start = batch_end + 1
-
     if total_found:
-        print(
-            f"[{email}] Recovered {total_found} message(s) "
-            "into MailFlag pending state."
-        )
-
+        print(f"[{email}/{folder}] Recovered {total_found} pending message(s).")
     refresh_indicator_async()
     return total_found
-
 
 def notification_is_busy():
     try:
@@ -914,6 +865,7 @@ def show_live_message_ui(
     email,
     uid,
     uidvalidity,
+    folder=IMAP_FOLDER,
 ):
     """
     One immediate popup globally, even with multiple accounts.
@@ -926,7 +878,7 @@ def show_live_message_ui(
             f"[{email}] Live UID {uid} arrived while MailFlag UI was busy; "
             "adding it to the persistent indicator."
         )
-        add_pending_uid(email, uidvalidity, uid)
+        add_pending_uid(email, uidvalidity, uid, folder)
         return False
 
     if kind == "otp":
@@ -942,6 +894,7 @@ def process_live_message(
     email,
     uidvalidity,
     password,
+    folder=IMAP_FOLDER,
 ):
     subject = msg.subject or "(no subject)"
     sender = msg.from_ or "(unknown sender)"
@@ -951,11 +904,14 @@ def process_live_message(
     code = extract_code(subject, body)
     uid = int(msg.uid)
     reference = _message_reference(msg, sender, subject)
-    save_message_reference(email, uidvalidity, uid, reference)
+    save_message_reference(email, uidvalidity, uid, reference, folder)
+    if not claim_message_id(email, reference["message_id"]):
+        print(f"[{email}/{folder}] Duplicate Message-ID suppressed: UID {uid}")
+        return False
 
     print()
     print("-" * 60)
-    print(f"[{email}] LIVE NEW MAIL")
+    print(f"[{email}/{folder}] LIVE NEW MAIL")
     print("From:", sender)
     print("Subject:", subject)
     print("UID:", uid)
@@ -970,6 +926,7 @@ def process_live_message(
             uidvalidity,
             email,
             password,
+            folder,
         )
         GLib.idle_add(
             show_live_message_ui,
@@ -978,6 +935,7 @@ def process_live_message(
             email,
             uid,
             uidvalidity,
+            folder,
         )
     else:
         print("MailFlag: ordinary mail")
@@ -989,6 +947,7 @@ def process_live_message(
             uidvalidity,
             email,
             password,
+            folder,
             reference["message_id"],
             reference["date"],
         )
@@ -999,9 +958,11 @@ def process_live_message(
             email,
             uid,
             uidvalidity,
+            folder,
         )
 
     print("-" * 60)
+    return True
 
 
 def process_live_new_messages(
@@ -1010,11 +971,13 @@ def process_live_new_messages(
     uidvalidity,
     current_uidnext,
     password,
+    folder=IMAP_FOLDER,
 ):
     state = initialize_or_validate_state(
         email,
         uidvalidity,
         current_uidnext,
+        folder,
     )
 
     last_processed = int(state["last_processed_uid"])
@@ -1043,18 +1006,20 @@ def process_live_new_messages(
         messages.sort(key=lambda msg: int(msg.uid))
 
         for msg in messages:
-            process_live_message(
+            if process_live_message(
                 msg,
                 email,
                 uidvalidity,
                 password,
-            )
-            total += 1
+                folder,
+            ):
+                total += 1
 
         save_mail_state(
             email,
             uidvalidity,
             batch_end,
+            folder=folder,
         )
         batch_start = batch_end + 1
 
@@ -1067,8 +1032,9 @@ class MailFlagPopup:
         self.timeout_id = None
         self.current_pending_context = None
 
-    def show(self, code, sender, subject, uid, uidvalidity, email, password):
-        self.current_pending_context = (email, int(uidvalidity), int(uid))
+    def show(self, code, sender, subject, uid, uidvalidity, email, password,
+             folder=IMAP_FOLDER):
+        self.current_pending_context = (email, folder, int(uidvalidity), int(uid))
 
         if self.timeout_id is not None:
             try:
@@ -1123,6 +1089,7 @@ class MailFlagPopup:
             uidvalidity,
             email,
             password,
+            folder,
         )
 
         code_label = Gtk.Label(label=code)
@@ -1180,7 +1147,7 @@ class MailFlagPopup:
         return False
 
     def copy_code(
-        self, _widget, _event, code, uid, uidvalidity, email, password
+        self, _widget, _event, code, uid, uidvalidity, email, password, folder
     ):
         PLATFORM.copy_text(code)
         PLATFORM.copy_text(code, primary=True)
@@ -1201,7 +1168,7 @@ class MailFlagPopup:
 
         threading.Thread(
             target=move_message_to_trash,
-            args=(email, password, uid, uidvalidity),
+            args=(email, password, uid, uidvalidity, folder),
             daemon=True,
         ).start()
 
@@ -1212,9 +1179,9 @@ class MailFlagPopup:
         print("OTP popup timed out after 30 seconds.")
 
         if self.current_pending_context is not None:
-            email, uidvalidity, uid = self.current_pending_context
+            email, folder, uidvalidity, uid = self.current_pending_context
             self.current_pending_context = None
-            add_pending_uid(email, uidvalidity, uid)
+            add_pending_uid(email, uidvalidity, uid, folder)
 
         self.close_popup()
         return False
@@ -1258,10 +1225,11 @@ class RegularMailPopup:
         uidvalidity,
         email,
         password,
+        folder=IMAP_FOLDER,
         message_id="",
         sent_at="",
     ):
-        self.current_pending_context = (email, int(uidvalidity), int(uid))
+        self.current_pending_context = (email, folder, int(uidvalidity), int(uid))
         self.close_popup()
 
         window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
@@ -1357,6 +1325,7 @@ class RegularMailPopup:
             password,
             uid,
             uidvalidity,
+            folder,
         )
         actions.pack_start(delete_button, True, True, 0)
 
@@ -1369,6 +1338,7 @@ class RegularMailPopup:
             password,
             uid,
             uidvalidity,
+            folder,
         )
         actions.pack_start(spam_button, True, True, 0)
 
@@ -1381,7 +1351,8 @@ class RegularMailPopup:
         secondary.pack_start(ignore, True, True, 0)
         read = Gtk.Button(label="Mark as Read")
         style_action_button(read, "read")
-        read.connect("clicked", self.on_mark_read, email, password, uid, uidvalidity)
+        read.connect("clicked", self.on_mark_read, email, password, uid,
+                     uidvalidity, folder)
         secondary.pack_start(read, True, True, 0)
         outer.pack_start(secondary, False, False, 0)
 
@@ -1438,23 +1409,23 @@ class RegularMailPopup:
             daemon=True,
         ).start()
 
-    def on_delete(self, _button, email, password, uid, uidvalidity):
+    def on_delete(self, _button, email, password, uid, uidvalidity, folder):
         self.current_pending_context = None
         self.cancel_timeout()
         self.close_popup()
         threading.Thread(
             target=move_regular_to_trash,
-            args=(email, password, uid, uidvalidity),
+            args=(email, password, uid, uidvalidity, folder),
             daemon=True,
         ).start()
 
-    def on_spam(self, _button, email, password, uid, uidvalidity):
+    def on_spam(self, _button, email, password, uid, uidvalidity, folder):
         self.current_pending_context = None
         self.cancel_timeout()
         self.close_popup()
         threading.Thread(
             target=move_regular_to_spam,
-            args=(email, password, uid, uidvalidity),
+            args=(email, password, uid, uidvalidity, folder),
             daemon=True,
         ).start()
 
@@ -1462,13 +1433,13 @@ class RegularMailPopup:
         self.current_pending_context = None
         self.close_popup()
 
-    def on_mark_read(self, _button, email, password, uid, uidvalidity):
+    def on_mark_read(self, _button, email, password, uid, uidvalidity, folder):
         self.current_pending_context = None
         self.close_popup()
         def run():
-            if not mark_exact_read(MailBox, IMAP_HOST, IMAP_FOLDER,
+            if not mark_exact_read(MailBox, IMAP_HOST, folder,
                                    email, password, uid, uidvalidity):
-                add_pending_uid(email, uidvalidity, uid)
+                add_pending_uid(email, uidvalidity, uid, folder)
         threading.Thread(target=run, daemon=True).start()
 
     def on_timeout(self):
@@ -1479,9 +1450,9 @@ class RegularMailPopup:
         )
 
         if self.current_pending_context is not None:
-            email, uidvalidity, uid = self.current_pending_context
+            email, folder, uidvalidity, uid = self.current_pending_context
             self.current_pending_context = None
-            add_pending_uid(email, uidvalidity, uid)
+            add_pending_uid(email, uidvalidity, uid, folder)
 
         self.close_popup()
         return False
@@ -1610,6 +1581,7 @@ class TrayIndicator:
         )
 
         menu = Gtk.Menu()
+        menu.append(self._disabled_item(f"MailFlag {__version__}"))
         menu.append(self._disabled_item(
             f"MailFlag: {self.TITLES[aggregate]} ({connected}/{total})"
         ))
@@ -1902,11 +1874,11 @@ class PendingReview:
         items = []
 
         by_account = {}
-        for email, uid in pending:
-            by_account.setdefault(email, []).append(int(uid))
+        for email, folder, uid in pending:
+            by_account.setdefault((email, folder), []).append(int(uid))
 
         try:
-            for email, uids in by_account.items():
+            for (email, folder), uids in by_account.items():
                 password = APP_ACCOUNTS.get(email)
                 if not password:
                     continue
@@ -1914,12 +1886,12 @@ class PendingReview:
                 with MailBox(IMAP_HOST).login(
                     email,
                     password,
-                    initial_folder=IMAP_FOLDER,
+                    initial_folder=folder,
                 ) as mailbox:
-                    status = mailbox.folder.status(IMAP_FOLDER)
+                    status = mailbox.folder.status(folder)
                     uidvalidity = int(status["UIDVALIDITY"])
 
-                    state = load_mail_state(email)
+                    state = load_mail_state(email, folder)
                     if (
                         not state
                         or int(state["uidvalidity"]) != uidvalidity
@@ -1945,6 +1917,7 @@ class PendingReview:
                                 email,
                                 uidvalidity,
                                 uid,
+                                folder,
                             )
 
                     for msg in messages:
@@ -1952,7 +1925,7 @@ class PendingReview:
                         sender = msg.from_ or "(unknown sender)"
                         reference = _message_reference(msg, sender, subject)
                         save_message_reference(
-                            email, uidvalidity, msg.uid, reference
+                            email, uidvalidity, msg.uid, reference, folder
                         )
 
                         body = extract_human_text(msg.text, msg.html)
@@ -1960,6 +1933,7 @@ class PendingReview:
                         items.append(
                             {
                                 "email": email,
+                                "folder": folder,
                                 "password": password,
                                 "uidvalidity": uidvalidity,
                                 "uid": int(msg.uid),
@@ -2247,13 +2221,16 @@ class PendingReview:
             item["email"],
             item["uidvalidity"],
             item["uid"],
+            item["folder"],
         )
 
         if self.items and (
             self.items[0]["email"],
+            self.items[0]["folder"],
             self.items[0]["uid"],
         ) == (
             item["email"],
+            item["folder"],
             item["uid"],
         ):
             self.items.popleft()
@@ -2263,6 +2240,7 @@ class PendingReview:
                 for x in self.items
                 if not (
                     x["email"] == item["email"]
+                    and x["folder"] == item["folder"]
                     and x["uid"] == item["uid"]
                 )
             )
@@ -2284,6 +2262,7 @@ class PendingReview:
                 item["password"],
                 item["uid"],
                 item["uidvalidity"],
+                item["folder"],
             ),
             daemon=True,
         ).start()
@@ -2301,7 +2280,7 @@ class PendingReview:
                 self._stop_and_return_to_indicator()
             return False
         def run():
-            ok = mark_exact_read(MailBox, IMAP_HOST, IMAP_FOLDER,
+            ok = mark_exact_read(MailBox, IMAP_HOST, item["folder"],
                                  item["email"], item["password"],
                                  item["uid"], item["uidvalidity"])
             GLib.idle_add(completed, ok)
@@ -2309,16 +2288,18 @@ class PendingReview:
 
     def _regular_open(self, _button, item):
         self._cancel_timeout()
-        account_uids = {
-            queued["uid"]
-            for queued in self.items
-            if queued["email"] == item["email"]
-            and int(queued["uidvalidity"]) == int(item["uidvalidity"])
-        }
-        account_uids.add(item["uid"])
-        clear_pending_snapshot(
-            item["email"], item["uidvalidity"], account_uids
-        )
+        snapshots = {}
+        for queued in self.items:
+            if queued["email"] == item["email"]:
+                key = (queued["folder"], int(queued["uidvalidity"]))
+                snapshots.setdefault(key, set()).add(queued["uid"])
+        snapshots.setdefault(
+            (item["folder"], int(item["uidvalidity"])), set()
+        ).add(item["uid"])
+        for (folder, uidvalidity), uids in snapshots.items():
+            clear_pending_snapshot(
+                item["email"], uidvalidity, uids, folder
+            )
         threading.Thread(
             target=open_default_mail_app,
             daemon=True,
@@ -2335,6 +2316,7 @@ class PendingReview:
                 item["password"],
                 item["uid"],
                 item["uidvalidity"],
+                item["folder"],
             ),
             daemon=True,
         ).start()
@@ -2348,6 +2330,7 @@ class PendingReview:
                 item["password"],
                 item["uid"],
                 item["uidvalidity"],
+                item["folder"],
             ),
             daemon=True,
         ).start()
@@ -2370,6 +2353,7 @@ pending_review = PendingReview()
 
 
 APP_ACCOUNTS = {}
+APP_MONITORED_FOLDERS = {}
 
 
 def refresh_tray_async():
@@ -2380,205 +2364,6 @@ def refresh_tray_async():
 def set_connection_state(email, state, detail=""):
     if CONNECTION_STATUS is not None:
         CONNECTION_STATUS.update(email, state, detail)
-
-
-def imap_worker(email, password):
-    print(f"[{email}] worker started.")
-    set_connection_state(email, "connecting", "Connecting")
-
-    first_connection = True
-    reconnect_started_wall = None
-    reconnect_was_suspend = False
-
-    while True:
-        operation_clock = suspend_clock_snapshot()
-        mailbox = None
-
-        try:
-            with MailBox(IMAP_HOST, timeout=IMAP_SOCKET_TIMEOUT).login(
-                email,
-                password,
-                initial_folder=IMAP_FOLDER,
-            ) as mailbox:
-                register_active_mailbox(email, mailbox)
-
-                status = mailbox.folder.status(IMAP_FOLDER)
-                uidvalidity = int(status["UIDVALIDITY"])
-                current_uidnext = int(status["UIDNEXT"])
-
-                print(
-                    f"[{email}] Connected. Next new UID: {current_uidnext}"
-                )
-                print(
-                    f"[{email}] INBOX UIDVALIDITY: {uidvalidity}"
-                )
-                set_connection_state(email, "connected", "Connected")
-
-                try:
-                    detected_trash = find_trash_folder(mailbox)
-                    print(
-                        f"[{email}] Trash folder detected: "
-                        f"{detected_trash}"
-                    )
-                except Exception as exc:
-                    print(f"[{email}] WARNING: {exc}")
-
-                if first_connection:
-                    print(
-                        f"[{email}] Startup recovery mode: "
-                        "existing new mail -> persistent indicator only."
-                    )
-                    recover_backlog_messages(
-                        mailbox,
-                        email,
-                        uidvalidity,
-                        current_uidnext,
-                    )
-                    first_connection = False
-
-                elif reconnect_started_wall is not None:
-                    reconnect_seconds = max(
-                        0.0,
-                        time.time() - reconnect_started_wall,
-                    )
-
-                    if reconnect_was_suspend:
-                        print(
-                            f"[{email}] Reconnect followed suspend/resume: "
-                            "recovered mail -> indicator only."
-                        )
-                        recover_backlog_messages(
-                            mailbox,
-                            email,
-                            uidvalidity,
-                            current_uidnext,
-                        )
-
-                    elif reconnect_is_live(reconnect_seconds, reconnect_was_suspend):
-                        print(
-                            f"[{email}] Brief IMAP reconnect "
-                            f"({reconnect_seconds:.1f}s): recovered mail "
-                            "is treated as LIVE."
-                        )
-                        process_live_new_messages(
-                            mailbox,
-                            email,
-                            uidvalidity,
-                            current_uidnext,
-                            password,
-                        )
-
-                    else:
-                        print(
-                            f"[{email}] Long IMAP interruption "
-                            f"({reconnect_seconds:.1f}s): recovered mail "
-                            "-> indicator only."
-                        )
-                        recover_backlog_messages(
-                            mailbox,
-                            email,
-                            uidvalidity,
-                            current_uidnext,
-                        )
-
-                    reconnect_started_wall = None
-                    reconnect_was_suspend = False
-
-                else:
-                    recover_backlog_messages(
-                        mailbox,
-                        email,
-                        uidvalidity,
-                        current_uidnext,
-                    )
-
-                while True:
-                    idle_clock = suspend_clock_snapshot()
-
-                    responses = mailbox.idle.wait(
-                        timeout=IDLE_TIMEOUT
-                    )
-
-                    suspend_gap = suspend_gap_since(idle_clock)
-
-                    status = mailbox.folder.status(IMAP_FOLDER)
-                    new_uidvalidity = int(status["UIDVALIDITY"])
-                    new_uidnext = int(status["UIDNEXT"])
-
-                    if new_uidvalidity != uidvalidity:
-                        raise RuntimeError(
-                            "INBOX UIDVALIDITY changed"
-                        )
-
-                    set_connection_state(email, "connected", "Connected")
-
-                    if suspend_gap > SUSPEND_GAP_SECONDS:
-                        print(
-                            f"[{email}] Resume detected "
-                            f"(suspend gap ~{suspend_gap:.1f}s). "
-                            "Mail received while asleep -> indicator."
-                        )
-                        handled = recover_backlog_messages(
-                            mailbox,
-                            email,
-                            uidvalidity,
-                            new_uidnext,
-                        )
-                    else:
-                        handled = process_live_new_messages(
-                            mailbox,
-                            email,
-                            uidvalidity,
-                            new_uidnext,
-                            password,
-                        )
-
-                    if not responses and handled == 0:
-                        print(f"[{email}] IDLE heartbeat: OK")
-
-        except Exception as exc:
-            unregister_active_mailbox(email, mailbox)
-            try:
-                if suspend_gap_since(operation_clock) > SUSPEND_GAP_SECONDS:
-                    reconnect_was_suspend = True
-            except Exception:
-                pass
-
-            if reconnect_started_wall is None:
-                reconnect_started_wall = time.time()
-
-            error_name = type(exc).__name__
-            error_text = str(exc).strip()
-            detail = error_name if not error_text else f"{error_name}: {error_text}"
-            if len(detail) > 90:
-                detail = detail[:87] + "..."
-            set_connection_state(email, "error", detail)
-
-            if "EOF" in str(exc):
-                print(
-                    f"[{email}] IMAP connection closed. "
-                    "Reconnecting in 15 seconds..."
-                )
-            else:
-                print(
-                    f"[{email}] IMAP connection interrupted: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-                print(
-                    f"[{email}] Reconnecting in 15 seconds..."
-                )
-
-            retry_clock = suspend_clock_snapshot()
-            RECONNECT_EVENT.wait(15)
-            RECONNECT_EVENT.clear()
-            set_connection_state(email, "connecting", "Reconnecting")
-
-            try:
-                if suspend_gap_since(retry_clock) > SUSPEND_GAP_SECONDS:
-                    reconnect_was_suspend = True
-            except Exception:
-                pass
-
 
 
 class _GtkMonitorEvents:
@@ -2601,12 +2386,24 @@ class _GtkMonitorEvents:
         except Exception as exc:
             print(f"[{account}] WARNING: {exc}")
 
-    def recover_pending(self, mailbox, account, uidvalidity, uidnext):
-        return recover_backlog_messages(mailbox, account, uidvalidity, uidnext)
+    def monitored_folders(self, account):
+        return APP_MONITORED_FOLDERS.get(account, [IMAP_FOLDER])
 
-    def process_live(self, mailbox, account, uidvalidity, uidnext, password):
+    def folder_error(self, account, folder, exc):
+        print(
+            f"[{account}/{folder}] Folder unavailable: "
+            f"{type(exc).__name__}: {exc}. Other folders remain active."
+        )
+
+    def recover_pending(self, mailbox, account, folder, uidvalidity, uidnext):
+        return recover_backlog_messages(
+            mailbox, account, uidvalidity, uidnext, folder
+        )
+
+    def process_live(self, mailbox, account, folder, uidvalidity, uidnext,
+                     password):
         return process_live_new_messages(
-            mailbox, account, uidvalidity, uidnext, password
+            mailbox, account, uidvalidity, uidnext, password, folder
         )
 
     def resumed(self, account, gap):
@@ -2623,9 +2420,6 @@ class _GtkMonitorEvents:
         print(f"[{account}] Reconnecting in {retry_seconds} seconds...")
 
 
-# This definition intentionally replaces the legacy inline loop above. Keeping
-# the old function in this release makes the refactor diff auditable; runtime
-# uses the portable Core monitor below.
 def imap_worker(email, password):
     print(f"[{email}] worker started.")
     run_account_monitor(
@@ -2635,7 +2429,7 @@ def imap_worker(email, password):
 
 
 def main():
-    global APP_ACCOUNTS, CONNECTION_STATUS, tray_indicator
+    global APP_ACCOUNTS, APP_MONITORED_FOLDERS, CONNECTION_STATUS, tray_indicator
 
     try:
         accounts = load_accounts()
@@ -2646,6 +2440,14 @@ def main():
     if not accounts:
         print("No Yahoo accounts configured.")
         return
+
+    config = configparser.ConfigParser()
+    if CONFIG_FILE.exists():
+        config.read(CONFIG_FILE, encoding="utf-8")
+    APP_MONITORED_FOLDERS = {
+        email: configured_folders(config, email, IMAP_FOLDER)
+        for email in accounts
+    }
 
     migrate_legacy_state(accounts[0])
 
@@ -2676,12 +2478,15 @@ def main():
         CONNECTION_STATUS.update(email, "error", detail)
 
     print()
-    print("MailFlag v0.12.6")
+    print(f"MailFlag v{__version__}")
     print(f"Accounts configured: {len(accounts)}")
     for email in accounts:
         suffix = "" if email in credentials else " (keyring unavailable)"
         print(" -", email + suffix)
-    print("Folder: INBOX")
+    for email in accounts:
+        print(f"[{email}] Monitored folders: " + ", ".join(
+            APP_MONITORED_FOLDERS[email]
+        ))
     print("Persistent bottom-right indicator: ENABLED")
     print("Portable startup/reconnect/resume classification: ENABLED")
     print("Desktop-specific APIs: NOT USED")

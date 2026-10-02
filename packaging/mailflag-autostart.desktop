@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MailFlag
+Comment=Start MailFlag mail monitoring
+Exec=/usr/bin/mailflag
+Icon=mailflag
+Terminal=false
+X-GNOME-Autostart-enabled=true
+X-MATE-Autostart-enabled=true
+StartupNotify=false

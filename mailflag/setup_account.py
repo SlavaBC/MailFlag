@@ -29,7 +29,7 @@ if accounts:
         print(f"  {i}. {account}")
     print()
 
-email = input("Second Yahoo email: ").strip()
+email = input("Yahoo email: ").strip()
 if not email:
     raise SystemExit("No email entered.")
 
@@ -69,7 +69,7 @@ with CONFIG_FILE.open("w", encoding="utf-8") as f:
 os.chmod(CONFIG_FILE, 0o600)
 
 print()
-print("Second Yahoo account added locally.")
+print("Yahoo account added locally.")
 print("Configured MailFlag accounts:")
 for i, account in enumerate(accounts, 1):
     print(f"  {i}. {account}")

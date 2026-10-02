@@ -1,4 +1,26 @@
-# MailFlag 0.12.6
+# MailFlag 0.13.0-beta1
+
+Первая оформленная локальная beta MailFlag для Ubuntu / Linux Mint x86_64.
+Проверенная логика 0.12.6 сохранена, добавлены Debian package и независимый
+список контролируемых IMAP-папок для каждого аккаунта.
+
+## Изменения 0.13.0-beta1
+
+- Готовый `.deb` устанавливает программу, launcher, выбранную иконку четырёх
+  размеров и стандартный freedesktop autostart без venv или `pip install`.
+- `imap-tools 1.15.0` включён в `/opt/mailflag/vendor`; несовместимый системный
+  `python3-imap-tools` не используется.
+- Один процесс и один IMAP-сеанс на аккаунт обслуживают все выбранные папки.
+- `INBOX` сохраняет IDLE и десятисекундный safety-check. Дополнительные папки
+  проверяются каждые 30 секунд тем же сеансом.
+- `state.json` автоматически мигрирует на checkpoints и pending вида
+  `account → folder → UIDVALIDITY/UID`.
+- Delete, Spam, Mark as Read и OTP Trash проверяют точную исходную папку.
+- Message-ID используется только для подавления повторного уведомления между
+  папками; destructive actions по-прежнему используют folder/UIDVALIDITY/UID.
+- `mailflag --configure-folders [account]` получает существующие папки через
+  IMAP LIST и сохраняет выбор отдельно для аккаунта. `INBOX` обязателен;
+  Trash, Bulk/Junk, Sent и Drafts исключены из списка мониторинга.
 
 MailFlag 0.12.6 — чистый стабильный релиз после успешной проверки доставки в реальном
 Yahoo-аккаунте. Временная диагностика задержек удалена.
@@ -206,37 +228,78 @@ PYTHONPATH=vendor:. python3 -m unittest discover -s tests -p 'test_otp_detector.
 
 ## Установка и обновление
 
-Для Linux Mint / Ubuntu нужны Python 3, GTK 3, Secret Service и imap-tools. Установите системные зависимости, если их ещё нет:
+Основная установка для Ubuntu / Linux Mint x86_64:
 
 ```sh
-sudo apt install python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 libsecret-tools pulseaudio-utils
+cd /home/user/Documents/Codex/2026-09-13/MF/outputs/mailflag-0.13.0-beta1
+sudo apt install ./mailflag_0.13.0~beta1_amd64.deb
 ```
 
-Распакуйте архив, откройте терминал в папке `mailflag-0.12.6` и выполните:
+При переходе с прежнего `./install.sh` один раз удалите только старые
+пользовательские launcher/autostart-файлы:
 
 ```sh
-./install.sh
+mailflag-migrate-local
 ```
 
-`imap-tools==1.15.0` включён в сборку вместе с лицензией, поэтому установщику не нужен интернет. Запись выполняется в домашнюю папку, без sudo. Программа появляется в меню и в автозапуске при следующем входе пользователя. После установки завершите работающую предыдущую версию через меню значка или Ctrl+C в её терминале, затем запустите MailFlag из меню или:
+Команда не трогает `config.ini`, `state.json`, старые releases и keyring.
+
+APT автоматически устанавливает системные зависимости: Python 3, GTK 3,
+PyGObject, Cairo, Ayatana AppIndicator, Secret Service tools, `xdg-utils`,
+`libnotify-bin` и `pulseaudio-utils`. Python-библиотека `imap-tools 1.15.0`
+включена в пакет и не загружается из сети.
+
+Программа запускается из меню или командой:
 
 ```sh
-~/.local/bin/mailflag
+mailflag
 ```
 
-Текущие `~/.config/mailflag/config.ini`, `state.json` и записи Secret Service используются с обратной совместимостью. Установщик сохраняет их. Два аккаунта остаются раздельными. Защита от повторного запуска действует между экземплярами; старую версию нужно остановить вручную.
-
-Для добавления ещё одного Yahoo-аккаунта:
+Добавление Yahoo-аккаунта выполняется один раз из терминала; App Password
+сохраняется только в системном keyring:
 
 ```sh
-~/.local/bin/mailflag --add-account
+mailflag --add-account
 ```
 
-Пароль вводится скрыто и хранится в системном keyring с прежними атрибутами `service=mailflag`, `account=email`. Не передавайте пароль в аргументах команд.
+Выбор дополнительных папок с IMAP discovery:
 
-Обновление: распакуйте следующую сборку, повторно выполните её `install.sh`, затем перезапустите MailFlag. Новый выпуск сначала подготавливается в отдельной папке; переключение происходит после проверки зависимостей. Старые выпуски сохраняются в `~/.local/share/mailflag/releases`. Для запуска предыдущего выпуска можно выполнить его `run` после остановки текущего.
+```sh
+mailflag --configure-folders
+# или сразу для конкретного аккаунта:
+mailflag --configure-folders account@example.test
+```
 
-Отключение автозапуска: удалите `~/.config/autostart/mailflag.desktop`. Это не удаляет программу, настройки или письма.
+После изменения списка перезапустите MailFlag. `INBOX` всегда включён. Папки
+не создаются и не переименовываются: команда позволяет выбрать только уже
+существующие папки, полученные через IMAP LIST.
+
+Автозапуск устанавливается системным freedesktop-файлом
+`/etc/xdg/autostart/mailflag.desktop`. Он действует после следующего login и
+не зависит от Cinnamon. Защита `~/.config/mailflag/instance.lock` не позволяет
+второму процессу создавать дополнительные соединения или popup.
+
+Обновление выполняется той же командой `sudo apt install ./новый.deb`.
+Пакетные файлы отделены от `~/.config/mailflag` и Secret Service, поэтому
+аккаунты, folder settings, state, pending и credentials сохраняются.
+
+Удаление программы:
+
+```sh
+sudo apt remove mailflag
+```
+
+Даже `apt purge mailflag` не удаляет файлы из домашней папки и keyring.
+Полное ручное удаление пользовательских данных выполняйте только осознанно
+после удаления пакета. Package scripts не подключаются к IMAP и не выполняют
+никаких действий с письмами.
+
+Для разработческой установки без `.deb` сохранён прежний `./install.sh`.
+Он также использует vendored `imap-tools` и не требует интернета.
+
+Проверка автозапуска: завершите MailFlag через меню значка, выполните logout/login
+и убедитесь, что зелёный значок появился один раз. Повторный ручной запуск должен
+вывести `MailFlag is already running.`
 
 ## Что сохранено из 0.8
 
@@ -250,26 +313,29 @@ sudo apt install python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicat
 
 Spam сохраняет проверенный Yahoo fallback `Bulk`. Другие провайдеры в этой сборке не добавлялись.
 
-## Проверка без почты
+## Проверка установленного пакета без почты
 
 ```sh
-~/.local/bin/mailflag --version
-~/.local/bin/mailflag --demo
+mailflag --version
+mailflag --demo
 ```
 
 Demo показывает обычный popup с очень длинными полями. Его действия подменены: сеть, keyring и состояние почты не используются. Звук можно проверить отдельно:
 
 ```sh
-paplay ~/.local/share/mailflag/current/mailflag/notification.wav
+paplay /opt/mailflag/mailflag/notification.wav
 ```
 
-Тесты исходной сборки с окружением установленной программы:
+Тесты из каталога исходной сборки:
 
 ```sh
-~/.local/share/mailflag/current/venv/bin/python -m unittest discover -s tests -v
+PYTHONPATH=. python3 -m unittest discover -s tests -v
 ```
 
-На стороне сборки прошли 166 тестов: 122 проверки OTP regression suite и 44 прежних Core/Linux regression tests. Метрики нового корпуса: TP=60, TN=60, FP=0, FN=0. Дополнительно повторно проверены 66 кейсов предыдущего корпуса: 0 ошибок. Реальная почта, браузер и пароли тестами не использовались.
+В beta-сборке проходят 502 локальных теста, включая OTP regression corpus
+200/200 с метриками TP=100, TN=100, FP=0, FN=0, preview regression,
+per-folder state, source-folder actions, single-instance и package metadata.
+Реальная почта, браузер и пароли автоматическими тестами не используются.
 
 ## Проверка с вашими аккаунтами
 

@@ -1,0 +1,12 @@
+Package: mailflag
+Version: 0.13.0~beta1
+Section: mail
+Priority: optional
+Architecture: amd64
+Maintainer: MailFlag Local Build <local@localhost>
+Depends: python3 (>= 3.10), python3-gi, python3-cairo, gir1.2-gtk-3.0, gir1.2-gdkpixbuf-2.0, gir1.2-ayatanaappindicator3-0.1, libsecret-tools, xdg-utils
+Recommends: libnotify-bin, pulseaudio-utils
+Description: Fast multi-account Yahoo mail and OTP notifier
+ MailFlag monitors Yahoo IMAP accounts, displays ordinary-mail and OTP
+ popups, and safely performs exact-message actions using UIDVALIDITY and UID.
+ The compatible imap-tools 1.15.0 runtime is bundled with the package.

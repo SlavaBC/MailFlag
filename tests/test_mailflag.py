@@ -200,6 +200,35 @@ class StateAndUI(unittest.TestCase):
         self.assertEqual(app.load_mail_state('a')['last_processed_uid'],300)
         self.assertEqual(app.get_pending_uids('b'),[42])
 
+    def test_folder_state_isolation_and_uidvalidity_reset(self):
+        app.save_mail_state('a', 7, 10, [10], folder='INBOX')
+        app.save_mail_state('a', 8, 20, [19], folder='Amazon')
+        app.initialize_or_validate_state('a', 9, 31, folder='Amazon')
+        self.assertEqual(app.get_pending_uids('a', 'Amazon'), [])
+        self.assertEqual(app.load_mail_state('a', 'Amazon')['last_processed_uid'], 30)
+        self.assertEqual(app.get_pending_uids('a', 'INBOX'), [10])
+
+    def test_message_id_deduplicates_across_folders(self):
+        self.assertTrue(app.claim_message_id('a', '<same@example.test>'))
+        self.assertFalse(app.claim_message_id('a', '<same@example.test>'))
+        self.assertTrue(app.claim_message_id('a', '<different@example.test>'))
+
+    def test_actions_use_exact_source_folder(self):
+        with patch.object(app, 'move_exact', return_value=True) as move:
+            self.assertTrue(app.move_regular_to_trash(
+                'a', 'secret', 42, 7, 'Amazon'
+            ))
+        self.assertEqual(move.call_args.args[2], 'Amazon')
+
+        with patch.object(app, 'mark_exact_read', return_value=True) as mark:
+            popup = app.RegularMailPopup()
+            popup.close_popup = Mock()
+            with patch.object(app.threading, 'Thread') as thread:
+                popup.on_mark_read(None, 'a', 'secret', 42, 7, 'Orders')
+                target = thread.call_args.kwargs['target']
+                target()
+        self.assertEqual(mark.call_args.args[2], 'Orders')
+
     def test_message_id_metadata_is_preserved(self):
         app.save_mail_state('a', 7, 42, [42])
         reference = {'message_id':'<id@example.test>', 'sender':'A <a@x>',
@@ -215,7 +244,7 @@ class StateAndUI(unittest.TestCase):
         review = app.PendingReview()
         review.active = True
         review._stop_and_return_to_indicator = Mock()
-        item = {'email':'a', 'uidvalidity':7, 'uid':42, 'sender':'A <a@x>',
+        item = {'email':'a', 'folder':'INBOX', 'uidvalidity':7, 'uid':42, 'sender':'A <a@x>',
                 'subject':'Hello', 'date':'2026-09-14T12:00:00'}
         review.items = app.deque([item])
         with patch.object(app.threading, 'Thread') as thread:
@@ -228,11 +257,11 @@ class StateAndUI(unittest.TestCase):
         app.save_mail_state('a', 7, 42, [41, 42])
         app.save_mail_state('b', 9, 53, [51, 52, 53])
         items = [
-            {'email':'a', 'uidvalidity':7, 'uid':41},
-            {'email':'a', 'uidvalidity':7, 'uid':42},
-            {'email':'b', 'uidvalidity':9, 'uid':51},
-            {'email':'b', 'uidvalidity':9, 'uid':52},
-            {'email':'b', 'uidvalidity':9, 'uid':53},
+            {'email':'a', 'folder':'INBOX', 'uidvalidity':7, 'uid':41},
+            {'email':'a', 'folder':'INBOX', 'uidvalidity':7, 'uid':42},
+            {'email':'b', 'folder':'INBOX', 'uidvalidity':9, 'uid':51},
+            {'email':'b', 'folder':'INBOX', 'uidvalidity':9, 'uid':52},
+            {'email':'b', 'folder':'INBOX', 'uidvalidity':9, 'uid':53},
         ]
         review = app.PendingReview()
         review.items = app.deque(items)
@@ -246,8 +275,8 @@ class StateAndUI(unittest.TestCase):
     def test_pending_open_preserves_mail_arriving_after_review_loaded(self):
         app.save_mail_state('a', 7, 43, [41, 42])
         items = [
-            {'email':'a', 'uidvalidity':7, 'uid':41},
-            {'email':'a', 'uidvalidity':7, 'uid':42},
+            {'email':'a', 'folder':'INBOX', 'uidvalidity':7, 'uid':41},
+            {'email':'a', 'folder':'INBOX', 'uidvalidity':7, 'uid':42},
         ]
         review = app.PendingReview()
         review.items = app.deque(items)
@@ -278,7 +307,7 @@ class StateAndUI(unittest.TestCase):
 
     def test_ignore_does_not_add_pending(self):
         popup = app.RegularMailPopup()
-        popup.current_pending_context = ('a',7,42)
+        popup.current_pending_context = ('a','INBOX',7,42)
         popup.close_popup = Mock()
         with patch.object(app,'add_pending_uid') as add:
             popup.on_ignore(None)
@@ -289,7 +318,7 @@ class StateAndUI(unittest.TestCase):
     def test_timeout_goes_pending(self):
         app.save_mail_state('a',7,42,[])
         popup = app.RegularMailPopup()
-        popup.current_pending_context = ('a',7,42)
+        popup.current_pending_context = ('a','INBOX',7,42)
         popup.on_timeout()
         self.assertEqual(app.get_pending_uids('a'),[42])
 
@@ -309,6 +338,36 @@ class StateAndUI(unittest.TestCase):
             show.assert_not_called()
         self.assertEqual(app.get_pending_uids('a'),[41,42])
         self.assertEqual(app.load_mail_state('a')['last_processed_uid'],42)
+
+    def test_extra_folder_backlog_is_pending_in_that_folder(self):
+        app.save_mail_state('a', 8, 20, [], folder='Amazon')
+        message = SimpleNamespace(
+            uid='21', from_='shop@example.test', subject='Order update',
+            obj={}, date=None,
+        )
+        box = Mock()
+        box.fetch.return_value = [message]
+        self.assertEqual(
+            app.recover_backlog_messages(box, 'a', 8, 22, 'Amazon'), 1
+        )
+        self.assertEqual(app.get_pending_uids('a', 'Amazon'), [21])
+        self.assertEqual(app.get_pending_uids('a', 'INBOX'), [])
+
+    def test_real_otp_from_extra_folder_keeps_source_identity(self):
+        app.save_mail_state('a', 8, 20, [], folder='Amazon')
+        message = SimpleNamespace(
+            uid='21', from_='security@example.test',
+            subject='Your verification code', text='Use code 482913 to sign in.',
+            html='', obj={'Message-ID': '<otp-extra@test>'}, date=None,
+        )
+        with patch.object(app.GLib, 'idle_add') as idle:
+            self.assertTrue(app.process_live_message(
+                message, 'a', 8, 'secret', 'Amazon'
+            ))
+        args = idle.call_args.args
+        self.assertEqual(args[1], 'otp')
+        self.assertEqual(args[-1], 'Amazon')
+        self.assertEqual(args[2][-1], 'Amazon')
 
     def test_reconnect_boundaries(self):
         self.assertTrue(reconnect_is_live(15))

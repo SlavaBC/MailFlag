@@ -17,6 +17,7 @@ class MonitorConfig:
     watchdog_timeout: int = 20
     reconnect_delays: tuple[int, ...] = (3, 5, 10, 20, 40, 60)
     short_reconnect_seconds: int = 90
+    extra_folder_poll_seconds: int = 30
 
 
 def reconnect_delay(config, consecutive_failures):
@@ -96,6 +97,45 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
     reconnect_started_wall = None
     reconnect_was_suspend = False
     consecutive_failures = 0
+
+    def monitored_folders():
+        callback = getattr(events, "monitored_folders", None)
+        folders = callback(account) if callback else (provider.inbox,)
+        result = [provider.inbox]
+        seen = {provider.inbox.casefold()}
+        for folder in folders:
+            folder = str(folder).strip()
+            if folder and folder.casefold() not in seen:
+                result.append(folder)
+                seen.add(folder.casefold())
+        return result
+
+    def handle_folder(mailbox, folder, mode):
+        try:
+            status = refresh_folder_status(mailbox, folder)
+            uidvalidity = int(status["UIDVALIDITY"])
+            uidnext = int(status["UIDNEXT"])
+            if mode == "pending":
+                return events.recover_pending(
+                    mailbox, account, folder, uidvalidity, uidnext
+                )
+            return events.process_live(
+                mailbox, account, folder, uidvalidity, uidnext, password
+            )
+        except Exception as exc:
+            callback = getattr(events, "folder_error", None)
+            if callback:
+                callback(account, folder, exc)
+            return 0
+
+    def handle_extra_folders(mailbox, mode):
+        total = 0
+        for folder in monitored_folders()[1:]:
+            total += handle_folder(mailbox, folder, mode)
+        # IDLE must always resume with the primary inbox selected.
+        refresh_folder_status(mailbox, provider.inbox)
+        return total
+
     while True:
         operation_clock = platform.power_clock_snapshot()
         mailbox = None
@@ -112,20 +152,35 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                 events.connected(account, mailbox, uidvalidity, uidnext)
 
                 if first_connection:
-                    events.recover_pending(mailbox, account, uidvalidity, uidnext)
+                    events.recover_pending(
+                        mailbox, account, provider.inbox, uidvalidity, uidnext
+                    )
+                    handle_extra_folders(mailbox, "pending")
                     first_connection = False
                 elif reconnect_started_wall is not None:
                     outage = max(0.0, time.time() - reconnect_started_wall)
                     if reconnect_was_suspend or not reconnect_is_live(
                         outage, reconnect_was_suspend
                     ):
-                        events.recover_pending(mailbox, account, uidvalidity, uidnext)
+                        events.recover_pending(
+                            mailbox, account, provider.inbox, uidvalidity, uidnext
+                        )
+                        handle_extra_folders(mailbox, "pending")
                     else:
-                        events.process_live(mailbox, account, uidvalidity, uidnext, password)
+                        events.process_live(
+                            mailbox, account, provider.inbox,
+                            uidvalidity, uidnext, password,
+                        )
+                        handle_extra_folders(mailbox, "live")
                     reconnect_started_wall = None
                     reconnect_was_suspend = False
                 else:
-                    events.recover_pending(mailbox, account, uidvalidity, uidnext)
+                    events.recover_pending(
+                        mailbox, account, provider.inbox, uidvalidity, uidnext
+                    )
+                    handle_extra_folders(mailbox, "pending")
+
+                last_extra_poll = time.monotonic()
 
                 while True:
                     idle_clock = platform.power_clock_snapshot()
@@ -145,12 +200,20 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                     if gap > suspend_gap_seconds:
                         events.resumed(account, gap)
                         handled = events.recover_pending(
-                            mailbox, account, uidvalidity, new_uidnext
+                            mailbox, account, provider.inbox,
+                            uidvalidity, new_uidnext,
                         )
+                        handled += handle_extra_folders(mailbox, "pending")
+                        last_extra_poll = time.monotonic()
                     else:
                         handled = events.process_live(
-                            mailbox, account, uidvalidity, new_uidnext, password
+                            mailbox, account, provider.inbox,
+                            uidvalidity, new_uidnext, password,
                         )
+                        if (time.monotonic() - last_extra_poll
+                                >= config.extra_folder_poll_seconds):
+                            handled += handle_extra_folders(mailbox, "live")
+                            last_extra_poll = time.monotonic()
                     if not responses and handled == 0:
                         events.heartbeat(account)
         except Exception as exc:

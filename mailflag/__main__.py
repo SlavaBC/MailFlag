@@ -1,12 +1,19 @@
 """Application entry point and single-instance guard."""
-import fcntl
 import sys
 from .platform import get_platform
+from .single_instance import acquire_instance_lock
+from .version import __version__
 
 
 def main():
     if '--version' in sys.argv:
-        print('MailFlag 0.12.6')
+        print(f'MailFlag {__version__}')
+        return
+    if '--configure-folders' in sys.argv:
+        from .folders import configure_folders
+        index = sys.argv.index('--configure-folders')
+        account = sys.argv[index + 1] if len(sys.argv) > index + 1 else None
+        configure_folders(account)
         return
     if '--add-account' in sys.argv:
         from . import setup_account
@@ -27,13 +34,11 @@ def main():
         app.Gtk.main()
         return
     directory = get_platform().paths.config_dir
-    directory.mkdir(parents=True, exist_ok=True)
-    with (directory / 'instance.lock').open('a') as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            print('MailFlag is already running.')
-            return
+    lock = acquire_instance_lock(directory / 'instance.lock')
+    if lock is None:
+        print('MailFlag is already running.')
+        return
+    with lock:
         from .app import main as run
         run()
 
