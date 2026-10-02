@@ -21,7 +21,7 @@ This is a local beta build. No public release or Git tag was created.
 | Per-folder state/actions | DONE | State v3 stores folder UIDVALIDITY, last UID, pending and references; exact source folder is used for mail actions. |
 | Reconnect/startup/suspend | DONE | Startup, long outage and resume recover all configured folders into pending; short reconnect stays live. |
 | Duplicate suppression | DONE | Account-wide bounded Message-ID history suppresses cross-folder repeat notification; UID identity remains authoritative for actions. |
-| Automated regressions | DONE | 502 tests pass; OTP 200/200 (TP 100, TN 100, FP 0, FN 0). |
+| Automated regressions | DONE | 503 tests pass; OTP 200/200 (TP 100, TN 100, FP 0, FN 0). |
 | Clean real-machine install and Yahoo E2E | PARTIAL | Package-root extraction and offline runtime are verified. Installing into the active desktop, login/reboot, keyring and real Yahoo folders require the user's machine/session and credentials. |
 | Linux Mint visual checks at all desktop scales | PARTIAL | Exact icon files and metadata are verified; final Cinnamon rendering must be observed after installation. |
 | Public publication | BLOCKED BY SCOPE | Explicitly excluded: no GitHub Release, upload or public tag. |

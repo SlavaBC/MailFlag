@@ -50,6 +50,12 @@ class PackagingTests(unittest.TestCase):
         build = (ROOT / 'build-deb.sh').read_text()
         self.assertIn('BETA_CHECKLIST.md', build)
 
+    def test_launcher_cannot_import_a_mailflag_file_from_current_directory(self):
+        build = (ROOT / 'build-deb.sh').read_text()
+        self.assertIn('cd /opt/mailflag', build)
+        self.assertLess(build.index('cd /opt/mailflag'),
+                        build.index('exec /usr/bin/python3 -m mailflag'))
+
 
 if __name__ == '__main__':
     unittest.main()

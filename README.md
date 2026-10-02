@@ -332,10 +332,13 @@ paplay /opt/mailflag/mailflag/notification.wav
 PYTHONPATH=. python3 -m unittest discover -s tests -v
 ```
 
-В beta-сборке проходят 502 локальных теста, включая OTP regression corpus
+В beta-сборке проходят 503 локальных теста, включая OTP regression corpus
 200/200 с метриками TP=100, TN=100, FP=0, FN=0, preview regression,
 per-folder state, source-folder actions, single-instance и package metadata.
 Реальная почта, браузер и пароли автоматическими тестами не используются.
+Системный launcher сначала переходит в `/opt/mailflag`, поэтому одноимённый
+старый файл `mailflag.py` в домашней или другой текущей папке не может подменить
+установленный пакет Python.
 
 ## Проверка с вашими аккаунтами
 

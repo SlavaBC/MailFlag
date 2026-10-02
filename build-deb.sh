@@ -19,6 +19,7 @@ find "$BUILD/opt/mailflag" -type f -name '*.pyc' -delete
 cat > "$BUILD/opt/mailflag/run" <<'EOF'
 #!/bin/sh
 set -eu
+cd /opt/mailflag
 export PYTHONPATH="/opt/mailflag/vendor${PYTHONPATH:+:$PYTHONPATH}"
 exec /usr/bin/python3 -m mailflag "$@"
 EOF
