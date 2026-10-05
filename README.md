@@ -1,8 +1,21 @@
-# MailFlag 0.13.0-beta1
+# MailFlag 0.13.1-beta1
 
-Первая оформленная локальная beta MailFlag для Ubuntu / Linux Mint x86_64.
+Оформленная локальная beta MailFlag для Ubuntu / Linux Mint x86_64.
 Проверенная логика 0.12.6 сохранена, добавлены Debian package и независимый
 список контролируемых IMAP-папок для каждого аккаунта.
+
+## Изменения 0.13.1-beta1
+
+- Обычный popup и pending review показывают полное RFC-поле отправителя в виде
+  `Display Name <email>`. MIME encoded-word, кириллица и акценты декодируются;
+  очень длинное имя ограничивается, но email остаётся видимым.
+- OTP-классификатор отклоняет годы 2025–2030 в обычном контексте и понимает
+  отрицания вроде `This is not a verification code` и
+  `No verification code is required`.
+- Явная инструкция `Use this verification code: 2026` всё ещё может корректно
+  распознать настоящий четырёхзначный OTP.
+- Все изменения ограничены sender presentation и OTP classifier; IMAP,
+  UID/UIDVALIDITY, popup actions и monitoring не менялись.
 
 ## Изменения 0.13.0-beta1
 
@@ -232,7 +245,7 @@ PYTHONPATH=vendor:. python3 -m unittest discover -s tests -p 'test_otp_detector.
 
 ```sh
 cd /home/user/Documents/Codex/2026-09-13/MF/outputs/mailflag-0.13.0-beta1
-sudo apt install ./mailflag_0.13.0~beta1_amd64.deb
+sudo apt install ./mailflag_0.13.1~beta1_amd64.deb
 ```
 
 При переходе с прежнего `./install.sh` один раз удалите только старые
@@ -332,7 +345,7 @@ paplay /opt/mailflag/mailflag/notification.wav
 PYTHONPATH=. python3 -m unittest discover -s tests -v
 ```
 
-В beta-сборке проходят 503 локальных теста, включая OTP regression corpus
+В beta-сборке проходят 515 локальных тестов, включая OTP regression corpus
 200/200 с метриками TP=100, TN=100, FP=0, FN=0, preview regression,
 per-folder state, source-folder actions, single-instance и package metadata.
 Реальная почта, браузер и пароли автоматическими тестами не используются.

@@ -44,6 +44,7 @@ from .sound import (
     set_sound_choice,
 )
 from .core.session import reconnect_is_live
+from .core.sender import format_message_sender
 from .core.status import ConnectionStatus, stale_connected_accounts
 from .platform import get_platform
 from .providers import YAHOO
@@ -832,7 +833,7 @@ def recover_backlog_messages(mailbox, email, uidvalidity, current_uidnext,
         for msg in messages:
             reference = _message_reference(
                 msg,
-                getattr(msg, "from_", "") or "(unknown sender)",
+                format_message_sender(msg),
                 getattr(msg, "subject", "") or "(no subject)",
             )
             save_message_reference(email, uidvalidity, msg.uid, reference, folder)
@@ -897,7 +898,8 @@ def process_live_message(
     folder=IMAP_FOLDER,
 ):
     subject = msg.subject or "(no subject)"
-    sender = msg.from_ or "(unknown sender)"
+    sender = format_message_sender(msg)
+    sender_email = msg.from_ or "(unknown sender)"
 
     body = extract_human_text(msg.text, msg.html)
 
@@ -920,7 +922,7 @@ def process_live_message(
         print("MAILFLAG CODE:", code)
         payload = (
             code,
-            sender,
+            sender_email,
             subject,
             uid,
             uidvalidity,
@@ -1922,7 +1924,8 @@ class PendingReview:
 
                     for msg in messages:
                         subject = msg.subject or "(no subject)"
-                        sender = msg.from_ or "(unknown sender)"
+                        sender = format_message_sender(msg)
+                        sender_email = msg.from_ or "(unknown sender)"
                         reference = _message_reference(msg, sender, subject)
                         save_message_reference(
                             email, uidvalidity, msg.uid, reference, folder
@@ -1930,6 +1933,7 @@ class PendingReview:
 
                         body = extract_human_text(msg.text, msg.html)
 
+                        code = extract_code(subject, body)
                         items.append(
                             {
                                 "email": email,
@@ -1937,10 +1941,10 @@ class PendingReview:
                                 "password": password,
                                 "uidvalidity": uidvalidity,
                                 "uid": int(msg.uid),
-                                "sender": sender,
+                                "sender": sender_email if code else sender,
                                 "subject": subject,
                                 "preview": extract_preview(msg.text, msg.html),
-                                "code": extract_code(subject, body),
+                                "code": code,
                                 "message_id": reference["message_id"],
                                 "date": reference["date"],
                             }

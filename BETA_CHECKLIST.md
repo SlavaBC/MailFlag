@@ -1,4 +1,4 @@
-# MailFlag 0.13.0-beta1 verification report
+# MailFlag 0.13.1-beta1 verification report
 
 This is a local beta build. No public release or Git tag was created.
 
@@ -7,7 +7,7 @@ This is a local beta build. No public release or Git tag was created.
 | Area | Status | Evidence / remaining manual check |
 |---|---|---|
 | Baseline and checkpoint | DONE | Stable 0.12.6 passed 484 tests; checkpoint commit `9b2a705`. |
-| Version consistency | DONE | Application `0.13.0-beta1`; Debian `0.13.0~beta1`; source, menu and package metadata agree. |
+| Version consistency | DONE | Application `0.13.1-beta1`; Debian `0.13.1~beta1`; source, menu and package metadata agree. |
 | Icons | DONE | Existing selected MailFlag artwork is packaged at 48, 64, 128 and 256 px; dimensions verified. |
 | Application menu | DONE | Freedesktop launcher has an absolute executable, `Icon=mailflag` and `Terminal=false`; `desktop-file-validate` passes. |
 | Autostart | DONE | System freedesktop entry is installed at `/etc/xdg/autostart/mailflag.desktop`. |
@@ -21,7 +21,7 @@ This is a local beta build. No public release or Git tag was created.
 | Per-folder state/actions | DONE | State v3 stores folder UIDVALIDITY, last UID, pending and references; exact source folder is used for mail actions. |
 | Reconnect/startup/suspend | DONE | Startup, long outage and resume recover all configured folders into pending; short reconnect stays live. |
 | Duplicate suppression | DONE | Account-wide bounded Message-ID history suppresses cross-folder repeat notification; UID identity remains authoritative for actions. |
-| Automated regressions | DONE | 503 tests pass; OTP 200/200 (TP 100, TN 100, FP 0, FN 0). |
+| Automated regressions | DONE | 515 tests pass; OTP 200/200 (TP 100, TN 100, FP 0, FN 0). |
 | Clean real-machine install and Yahoo E2E | PARTIAL | Package-root extraction and offline runtime are verified. Installing into the active desktop, login/reboot, keyring and real Yahoo folders require the user's machine/session and credentials. |
 | Linux Mint visual checks at all desktop scales | PARTIAL | Exact icon files and metadata are verified; final Cinnamon rendering must be observed after installation. |
 | Public publication | BLOCKED BY SCOPE | Explicitly excluded: no GitHub Release, upload or public tag. |
@@ -51,7 +51,7 @@ operation is needed during package installation.
 
 ## User workflow
 
-1. Install: `sudo apt install ./mailflag_0.13.0~beta1_amd64.deb`.
+1. Install: `sudo apt install ./mailflag_0.13.1~beta1_amd64.deb`.
 2. If upgrading from the old local installer, run once: `mailflag-migrate-local`.
 3. Add an account: `mailflag --add-account`.
 4. Select folders: `mailflag --configure-folders` (or append the exact account argument), then restart MailFlag.

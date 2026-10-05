@@ -62,6 +62,10 @@ OTP_GLOBAL_NEGATIVE_PHRASES = (
     "код не был сгенерирован", "код не создан", "новый код ещё не запрошен",
     "новый код еще не запрошен", "ничего подтверждать не требуется",
     "no action or verification is required",
+    "this is not a verification code", "this is not an otp",
+    "no verification code is required", "you do not need a verification code",
+    "you don't need a verification code", "not a verification code",
+    "not an otp",
 )
 
 OTP_IDENTIFIER_LABELS = (
@@ -84,6 +88,12 @@ PHONE_RE = re.compile(
 DATE_RE = re.compile(r"\b(?:19|20)\d{2}[-/.](?:0?[1-9]|1[0-2])[-/.](?:0?[1-9]|[12]\d|3[01])\b")
 TIME_RE = re.compile(r"\b(?:[01]?\d|2[0-3]):[0-5]\d\b")
 DECIMAL_VERSION_RE = re.compile(r"\b\d+(?:\.\d+){2,}\b")
+CALENDAR_YEAR_RE = re.compile(r"^(?:202[5-9]|2030)$")
+STRONG_YEAR_OTP_RE = re.compile(
+    r"(?:\b(?:use|enter)\b[^\n;.!?]{0,35}\b(?:code|otp)\b\s*(?::|is|—|-)?|"
+    r"\b(?:your|the)\s+(?:(?:verification|security|one-time|login|authentication)\s+)?"
+    r"(?:code|otp)\s*(?:is|:|—|-))\s*$"
+)
 def _otp_plain_text(value):
     """Turn HTML-ish mail content into readable text without joining words."""
     value = html.unescape(value or "").replace("\xa0", " ")
@@ -208,6 +218,16 @@ def classify_otp(subject, body):
         if invalid_hits:
             score -= 14
             reasons.append(f"invalid:{invalid_hits[0]}")
+
+        # Four-digit calendar years are common in invoices, statements and
+        # dates. Accept one only when the same clause explicitly presents it
+        # as the current OTP.
+        if CALENDAR_YEAR_RE.fullmatch(code):
+            if STRONG_YEAR_OTP_RE.search(clause_left):
+                reasons.append("year_with_explicit_otp_instruction")
+            else:
+                score -= 20
+                reasons.append("calendar_year")
 
         # Identifier labels normally occur shortly before their value.  Keep
         # the range tight so an order number elsewhere cannot suppress an OTP.
