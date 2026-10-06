@@ -12,8 +12,8 @@ ROOT = Path(__file__).parents[1]
 class PackagingTests(unittest.TestCase):
     def test_version_metadata_is_consistent(self):
         control = (ROOT / 'packaging/debian/control').read_text()
-        self.assertEqual(__version__, '0.14.1-beta1')
-        self.assertEqual(DEBIAN_VERSION, '0.14.1~beta1')
+        self.assertEqual(__version__, '0.14.2-beta1')
+        self.assertEqual(DEBIAN_VERSION, '0.14.2~beta1')
         self.assertIn(f'Version: {DEBIAN_VERSION}', control)
         self.assertIn(f'VERSION={DEBIAN_VERSION}',
                       (ROOT / 'build-deb.sh').read_text())
@@ -25,6 +25,7 @@ class PackagingTests(unittest.TestCase):
             self.assertIn('Icon=mailflag', text)
             self.assertIn('Terminal=false', text)
         self.assertIn('Exec=/usr/bin/mailflag --settings', launcher)
+        self.assertIn('StartupWMClass=mailflag', launcher)
         self.assertIn('Exec=/usr/bin/mailflag --startup', autostart)
         self.assertIn('X-GNOME-Autostart-enabled=true', autostart)
 
@@ -50,6 +51,7 @@ class PackagingTests(unittest.TestCase):
     def test_settings_dialogs_have_icon_and_scrollable_folder_list(self):
         source = (ROOT / 'mailflag/settings_gui.py').read_text()
         self.assertIn('Gtk.Window.set_default_icon_from_file', source)
+        self.assertIn('self.set_wmclass("mailflag", "MailFlag")', source)
         self.assertIn('scroll.set_policy(Gtk.PolicyType.NEVER,', source)
         self.assertIn('box.pack_start(scroll, True, True, 0)', source)
 

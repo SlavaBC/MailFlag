@@ -8,3 +8,4 @@ Icon=mailflag
 Terminal=false
 Categories=Network;Email;
 StartupNotify=false
+StartupWMClass=mailflag

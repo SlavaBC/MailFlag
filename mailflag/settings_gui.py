@@ -22,6 +22,9 @@ PLATFORM = get_platform()
 
 def install_window_icon():
     """Give the settings window and every transient dialog the app icon."""
+    GLib.set_prgname("mailflag")
+    GLib.set_application_name("MailFlag")
+    Gtk.Window.set_default_icon_name("mailflag")
     icon = PLATFORM.paths.assets_dir / "mailflag-app-icon.png"
     if icon.exists():
         Gtk.Window.set_default_icon_from_file(str(icon))
@@ -147,6 +150,7 @@ class FolderSelectionDialog(Gtk.Dialog):
 class SettingsWindow(Gtk.Window):
     def __init__(self, service=None):
         super().__init__(title="MailFlag Settings")
+        self.set_wmclass("mailflag", "MailFlag")
         self.service = service or SettingsService()
         self.set_default_size(680, 500)
         self.set_border_width(16)
