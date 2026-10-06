@@ -10,6 +10,7 @@ HELP = """Usage: mailflag [OPTION]
 
   --settings                    open the graphical settings window
   --background                  run mail monitoring without opening Settings
+  --startup                     first-run-aware desktop-session startup
   --add-account                 add a Yahoo account in the terminal
   --remove-account [ACCOUNT]    remove one local account safely
   --configure-folders [ACCOUNT] choose monitored IMAP folders
@@ -17,6 +18,13 @@ HELP = """Usage: mailflag [OPTION]
   --version                     show the installed version
   --help                        show this help
 """
+
+
+def should_open_settings(arguments, accounts):
+    """Return the UI route without importing GTK or starting a worker."""
+    if '--startup' in arguments:
+        return not accounts
+    return '--settings' in arguments or '--background' not in arguments
 
 
 def main():
@@ -56,13 +64,21 @@ def main():
         app.regular_popup.window.connect("destroy", lambda *_: app.Gtk.main_quit())
         app.Gtk.main()
         return
-    if '--settings' in sys.argv or '--background' not in sys.argv:
-        unknown = [arg for arg in sys.argv[1:] if arg != '--settings']
-        if unknown:
-            print(f"Unknown option: {unknown[0]}\n\n{HELP}", file=sys.stderr)
-            raise SystemExit(2)
+    allowed_runtime = {'--settings', '--background', '--startup'}
+    unknown = [arg for arg in sys.argv[1:] if arg not in allowed_runtime]
+    if unknown:
+        print(f"Unknown option: {unknown[0]}\n\n{HELP}", file=sys.stderr)
+        raise SystemExit(2)
+    startup = '--startup' in sys.argv
+    accounts = None
+    if startup:
+        from .settings_service import SettingsService
+        accounts = SettingsService().accounts()
+    open_settings = should_open_settings(sys.argv[1:], accounts)
+    if open_settings:
         from .settings_gui import run_settings
         directory = get_platform().paths.config_dir
+        directory.mkdir(parents=True, exist_ok=True)
         settings_lock = acquire_instance_lock(directory / 'settings.lock')
         if settings_lock is None:
             print('MailFlag Settings is already open.')
@@ -71,6 +87,7 @@ def main():
             run_settings()
         return
     directory = get_platform().paths.config_dir
+    directory.mkdir(parents=True, exist_ok=True)
     lock = acquire_instance_lock(directory / 'instance.lock')
     if lock is None:
         print('MailFlag background is already running.')

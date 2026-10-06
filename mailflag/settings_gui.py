@@ -20,6 +20,13 @@ from .version import __version__
 PLATFORM = get_platform()
 
 
+def install_window_icon():
+    """Give the settings window and every transient dialog the app icon."""
+    icon = PLATFORM.paths.assets_dir / "mailflag-app-icon.png"
+    if icon.exists():
+        Gtk.Window.set_default_icon_from_file(str(icon))
+
+
 def _background_command():
     installed = Path("/usr/bin/mailflag")
     return [str(installed), "--background"] if installed.exists() else [
@@ -107,7 +114,9 @@ class FolderSelectionDialog(Gtk.Dialog):
     def __init__(self, parent, folders, selected=("INBOX",)):
         super().__init__(title="Choose monitored folders", transient_for=parent,
                          modal=True, destroy_with_parent=True)
-        self.set_default_size(450, 420)
+        screen_height = parent.get_screen().get_height() if parent else 700
+        self.set_default_size(460, min(560, max(380, screen_height - 120)))
+        self.set_resizable(True)
         self.add_button("Back", Gtk.ResponseType.CANCEL)
         self.add_button("Continue", Gtk.ResponseType.OK)
         box = self.get_content_area(); box.set_spacing(8)
@@ -116,12 +125,19 @@ class FolderSelectionDialog(Gtk.Dialog):
         label = Gtk.Label(label="Folders to monitor", xalign=0)
         label.set_markup("<b>Folders to monitor</b>")
         box.pack_start(label, False, False, 0)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_min_content_height(280)
+        folder_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.checks = []
         for folder in folders:
             check = Gtk.CheckButton(label=folder)
             check.set_active(folder in selected or folder == "INBOX")
             check.set_sensitive(folder != "INBOX")
-            self.checks.append(check); box.pack_start(check, False, False, 0)
+            self.checks.append(check)
+            folder_box.pack_start(check, False, False, 0)
+        scroll.add(folder_box)
+        box.pack_start(scroll, True, True, 0)
         self.show_all()
 
     def selected(self):
@@ -381,6 +397,7 @@ class SettingsWindow(Gtk.Window):
 
 
 def run_settings():
+    install_window_icon()
     window = SettingsWindow()
     if window.service.accounts() and not (
         PLATFORM.paths.config_dir / "control.sock"
@@ -390,4 +407,5 @@ def run_settings():
     Gtk.main()
 
 
-__all__ = ["SettingsWindow", "run_settings", "restart_background", "start_background"]
+__all__ = ["SettingsWindow", "run_settings", "restart_background",
+           "start_background", "install_window_icon"]

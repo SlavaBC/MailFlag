@@ -39,7 +39,7 @@ class DesktopAutostart(AutostartService):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(
             "[Desktop Entry]\nType=Application\nName=MailFlag\n"
-            "Exec=/usr/bin/mailflag --background\nIcon=mailflag\n"
+            "Exec=/usr/bin/mailflag --startup\nIcon=mailflag\n"
             "Terminal=false\nX-GNOME-Autostart-enabled=true\n",
             encoding="utf-8",
         )

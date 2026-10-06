@@ -2,7 +2,7 @@
 Type=Application
 Name=MailFlag
 Comment=Start MailFlag mail monitoring
-Exec=/usr/bin/mailflag --background
+Exec=/usr/bin/mailflag --startup
 Icon=mailflag
 Terminal=false
 X-GNOME-Autostart-enabled=true

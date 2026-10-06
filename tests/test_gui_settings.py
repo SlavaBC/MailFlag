@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from mailflag.ipc import ControlServer, send_command
+from mailflag.__main__ import should_open_settings
 from mailflag.platform.base import AppPaths
 from mailflag.settings_service import POPUP_DURATIONS, SettingsService, otp_timeout
 from mailflag import remove_account as remove_module
@@ -96,6 +97,12 @@ class SettingsModelTests(unittest.TestCase):
     def test_config_is_written_private(self):
         self.service.add_yahoo_account("a@yahoo.com", "one")
         self.assertEqual(self.platform.paths.config_file.stat().st_mode & 0o777, 0o600)
+
+    def test_desktop_startup_opens_settings_only_for_fresh_profile(self):
+        self.assertTrue(should_open_settings(["--startup"], []))
+        self.assertFalse(should_open_settings(["--startup"], ["a@yahoo.com"]))
+        self.assertTrue(should_open_settings(["--settings"], None))
+        self.assertFalse(should_open_settings(["--background"], None))
 
 
 class IpcTests(unittest.TestCase):

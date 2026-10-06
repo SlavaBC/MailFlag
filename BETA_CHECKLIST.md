@@ -1,4 +1,4 @@
-# MailFlag 0.14.0-beta1 GUI verification report
+# MailFlag 0.14.1-beta1 GUI verification report
 
 This is a local beta build. No public release or Git tag was created.
 
@@ -7,11 +7,13 @@ This is a local beta build. No public release or Git tag was created.
 | Area | Status | Evidence / remaining manual check |
 |---|---|---|
 | Baseline and checkpoint | DONE | Pre-GUI stable checkpoint is `a9e5e7337b8045241279f5f7b8af070045a3399f`; 515 tests passed. |
-| Version consistency | DONE | Application `0.14.0-beta1`; Debian `0.14.0~beta1`; source, About and package metadata agree. |
+| Version consistency | DONE | Application `0.14.1-beta1`; Debian `0.14.1~beta1`; source, About and package metadata agree. |
 | Icons | DONE | Existing selected MailFlag artwork is packaged at 48, 64, 128 and 256 px; dimensions verified. |
 | Application menu | DONE | Menu runs `--settings`; absolute executable, selected icon and `Terminal=false`. |
 | Settings / first run | DONE | GTK Accounts, Folders, Notifications, Startup and About plus Welcome/account/folder/finish flow. |
-| Autostart | DONE | Freedesktop autostart runs `--background`, never Settings; GUI can enable/disable a per-user override. |
+| First run and autostart | DONE | Freedesktop autostart runs `--startup`: a clean profile opens Settings; configured profiles start only the background monitor. |
+| Window icon | DONE | Settings and all transient dialogs inherit the MailFlag application icon. |
+| Folder chooser | DONE | Long folder lists scroll inside a bounded dialog; action buttons remain outside the scrolling area. |
 | Process lifecycle | DONE | Separate background/settings locks and a `0600` Unix control socket prevent duplicate monitoring and implement Stop/restart. |
 | Account management | DONE | Yahoo add/test/edit/remove; credentials only in keyring; removal is confirmed and does not touch server mail. |
 | Custom IMAP | PARTIAL | Visible as a future provider adapter but intentionally disabled because the current verified core is Yahoo-only. |
@@ -26,7 +28,7 @@ This is a local beta build. No public release or Git tag was created.
 | Per-folder state/actions | DONE | State v3 stores folder UIDVALIDITY, last UID, pending and references; exact source folder is used for mail actions. |
 | Reconnect/startup/suspend | DONE | Startup, long outage and resume recover all configured folders into pending; short reconnect stays live. |
 | Duplicate suppression | DONE | Account-wide bounded Message-ID history suppresses cross-folder repeat notification; UID identity remains authoritative for actions. |
-| Automated regressions | DONE | 528 tests pass (one Unix-socket runtime test skipped only because the build sandbox blocks AF_UNIX); OTP 200/200 remains green. |
+| Automated regressions | DONE | 530 tests pass (one Unix-socket runtime test skipped only because the build sandbox blocks AF_UNIX); OTP 200/200 remains green. |
 | Clean real-machine install and Yahoo E2E | PARTIAL | Package-root extraction and offline runtime are verified. Installing into the active desktop, login/reboot, keyring and real Yahoo folders require the user's machine/session and credentials. |
 | Linux Mint visual checks at all desktop scales | PARTIAL | Exact icon files and metadata are verified; final Cinnamon rendering must be observed after installation. |
 | Public publication | BLOCKED BY SCOPE | Explicitly excluded: no GitHub Release, upload or public tag. |
@@ -56,7 +58,7 @@ operation is needed during package installation.
 
 ## User workflow
 
-1. Install: `sudo apt install ./mailflag_0.14.0~beta1_amd64.deb`.
+1. Install: `sudo apt install ./mailflag_0.14.1~beta1_amd64.deb`.
 2. If upgrading from the old local installer, run once: `mailflag-migrate-local`.
 3. Add an account: `mailflag --add-account`.
 4. Select folders: `mailflag --configure-folders` (or append the exact account argument), then restart MailFlag.

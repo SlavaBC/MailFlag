@@ -1,17 +1,20 @@
-# MailFlag 0.14.0-beta1
+# MailFlag 0.14.1-beta1
 
 Оформленная локальная beta MailFlag для Ubuntu / Linux Mint x86_64.
 Проверенная логика 0.12.6 сохранена, добавлены Debian package и независимый
 список контролируемых IMAP-папок для каждого аккаунта.
 
-## Изменения 0.14.0-beta1
+## Изменения 0.14.1-beta1
 
 - Меню приложений открывает компактное GTK Settings с разделами Accounts,
   Folders, Notifications, Startup и About; терминал для настройки не нужен.
 - Первый запуск показывает Welcome, Yahoo credentials, Test connection,
   выбор реальных IMAP-папок и подтверждение завершения.
 - Settings работает отдельно от background monitor. Закрытие окна не прекращает
-  почтовый контроль; autostart запускает только `mailflag --background`.
+  почтовый контроль. Autostart использует `mailflag --startup`: при чистом
+  первом запуске он открывает мастер, а после настройки запускает только фон.
+- Все окна Settings используют значок MailFlag. Длинный список папок помещён
+  в прокручиваемую область, а кнопки диалога всегда остаются видимыми.
 - Локальный Unix control socket с правами `0600` используется для явного Stop и
   безопасного перезапуска background после изменения аккаунтов или папок.
 - Добавление, обновление и подтверждённое удаление аккаунта работают через GUI;
@@ -263,7 +266,7 @@ PYTHONPATH=vendor:. python3 -m unittest discover -s tests -p 'test_otp_detector.
 
 ```sh
 cd /home/user/Documents/Codex/2026-09-13/MF/outputs/mailflag-0.13.0-beta1
-sudo apt install ./mailflag_0.14.0~beta1_amd64.deb
+sudo apt install ./mailflag_0.14.1~beta1_amd64.deb
 ```
 
 При переходе с прежнего `./install.sh` один раз удалите только старые
@@ -363,7 +366,7 @@ paplay /opt/mailflag/mailflag/notification.wav
 PYTHONPATH=. python3 -m unittest discover -s tests -v
 ```
 
-В beta-сборке проходят 528 локальных тестов, включая OTP regression corpus
+В beta-сборке проходят 530 локальных тестов, включая OTP regression corpus
 200/200 с метриками TP=100, TN=100, FP=0, FN=0, preview regression,
 per-folder state, source-folder actions, single-instance и package metadata.
 Реальная почта, браузер и пароли автоматическими тестами не используются.

@@ -12,8 +12,8 @@ ROOT = Path(__file__).parents[1]
 class PackagingTests(unittest.TestCase):
     def test_version_metadata_is_consistent(self):
         control = (ROOT / 'packaging/debian/control').read_text()
-        self.assertEqual(__version__, '0.14.0-beta1')
-        self.assertEqual(DEBIAN_VERSION, '0.14.0~beta1')
+        self.assertEqual(__version__, '0.14.1-beta1')
+        self.assertEqual(DEBIAN_VERSION, '0.14.1~beta1')
         self.assertIn(f'Version: {DEBIAN_VERSION}', control)
         self.assertIn(f'VERSION={DEBIAN_VERSION}',
                       (ROOT / 'build-deb.sh').read_text())
@@ -25,7 +25,7 @@ class PackagingTests(unittest.TestCase):
             self.assertIn('Icon=mailflag', text)
             self.assertIn('Terminal=false', text)
         self.assertIn('Exec=/usr/bin/mailflag --settings', launcher)
-        self.assertIn('Exec=/usr/bin/mailflag --background', autostart)
+        self.assertIn('Exec=/usr/bin/mailflag --startup', autostart)
         self.assertIn('X-GNOME-Autostart-enabled=true', autostart)
 
     def test_package_scripts_never_touch_mail_or_user_state(self):
@@ -47,6 +47,12 @@ class PackagingTests(unittest.TestCase):
         for size in (48, 64, 128, 256):
             self.assertTrue((ROOT / f'packaging/icons/mailflag-{size}.png').is_file())
 
+    def test_settings_dialogs_have_icon_and_scrollable_folder_list(self):
+        source = (ROOT / 'mailflag/settings_gui.py').read_text()
+        self.assertIn('Gtk.Window.set_default_icon_from_file', source)
+        self.assertIn('scroll.set_policy(Gtk.PolicyType.NEVER,', source)
+        self.assertIn('box.pack_start(scroll, True, True, 0)', source)
+
     def test_beta_acceptance_report_is_packaged(self):
         build = (ROOT / 'build-deb.sh').read_text()
         self.assertIn('BETA_CHECKLIST.md', build)
@@ -54,7 +60,7 @@ class PackagingTests(unittest.TestCase):
 
     def test_manual_documents_public_commands(self):
         manual = (ROOT / 'packaging/mailflag.1').read_text()
-        for option in ('--settings', '--background', '--remove-account',
+        for option in ('--settings', '--background', '--startup', '--remove-account',
                        '--configure-folders', '--help'):
             self.assertIn(option, manual)
 
