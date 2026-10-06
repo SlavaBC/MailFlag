@@ -1,14 +1,14 @@
 #!/bin/sh
 set -eu
 SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-VERSION=0.13.1~beta1
+VERSION=0.14.0~beta1
 PACKAGE=mailflag_${VERSION}_amd64.deb
 BUILD=$(mktemp -d "${TMPDIR:-/tmp}/mailflag-deb.XXXXXX")
 cleanup() { rm -rf "$BUILD"; }
 trap cleanup EXIT HUP INT TERM
 mkdir -p "$BUILD/DEBIAN" "$BUILD/opt/mailflag" "$BUILD/usr/bin" \
   "$BUILD/usr/share/applications" "$BUILD/etc/xdg/autostart" \
-  "$BUILD/usr/share/doc/mailflag"
+  "$BUILD/usr/share/doc/mailflag" "$BUILD/usr/share/man/man1"
 cp "$SOURCE/packaging/debian/control" "$BUILD/DEBIAN/control"
 cp "$SOURCE/packaging/debian/postinst" "$BUILD/DEBIAN/postinst"
 cp "$SOURCE/packaging/debian/postrm" "$BUILD/DEBIAN/postrm"
@@ -32,6 +32,7 @@ chmod 755 "$BUILD/usr/bin/mailflag"
 cp "$SOURCE/packaging/mailflag.desktop" "$BUILD/usr/share/applications/mailflag.desktop"
 cp "$SOURCE/packaging/mailflag-autostart.desktop" "$BUILD/etc/xdg/autostart/mailflag.desktop"
 cp "$SOURCE/packaging/mailflag-migrate-local" "$BUILD/usr/bin/mailflag-migrate-local"
+gzip -9 -c "$SOURCE/packaging/mailflag.1" > "$BUILD/usr/share/man/man1/mailflag.1.gz"
 for size in 48 64 128 256; do
   mkdir -p "$BUILD/usr/share/icons/hicolor/${size}x${size}/apps"
   cp "$SOURCE/packaging/icons/mailflag-${size}.png" \

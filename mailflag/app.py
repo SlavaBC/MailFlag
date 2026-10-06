@@ -45,6 +45,8 @@ from .sound import (
 )
 from .core.session import reconnect_is_live
 from .core.sender import format_message_sender
+from .ipc import ControlServer
+from .settings_service import SettingsService, otp_timeout
 from .core.status import ConnectionStatus, stale_connected_accounts
 from .platform import get_platform
 from .providers import YAHOO
@@ -872,7 +874,12 @@ def show_live_message_ui(
     One immediate popup globally, even with multiple accounts.
     A simultaneous second arrival becomes pending instead of stacking.
     """
-    play_notification()
+    preferences = SettingsService().notification_preferences()
+    if preferences["play_sound"]:
+        play_notification()
+    if not preferences["show_popup"]:
+        add_pending_uid(email, uidvalidity, uid, folder)
+        return False
     busy = notification_is_busy()
     if busy:
         print(
@@ -1136,8 +1143,9 @@ class MailFlagPopup:
             y = area.y + 24
             window.move(x, y)
 
+        duration = SettingsService().notification_preferences()["popup_duration"]
         self.timeout_id = GLib.timeout_add_seconds(
-            POPUP_TIMEOUT_SECONDS,
+            otp_timeout(duration),
             self.on_timeout,
         )
 
@@ -1178,7 +1186,7 @@ class MailFlagPopup:
 
     def on_timeout(self):
         self.timeout_id = None
-        print("OTP popup timed out after 30 seconds.")
+        print("OTP popup timed out.")
 
         if self.current_pending_context is not None:
             email, folder, uidvalidity, uid = self.current_pending_context
@@ -1362,8 +1370,9 @@ class RegularMailPopup:
         window.show_all()
         self.position_window(window)
 
+        duration = SettingsService().notification_preferences()["popup_duration"]
         self.timeout_id = GLib.timeout_add_seconds(
-            POPUP_TIMEOUT_SECONDS,
+            duration,
             self.on_timeout,
         )
 
@@ -1447,7 +1456,7 @@ class RegularMailPopup:
     def on_timeout(self):
         self.timeout_id = None
         print(
-            "Regular-mail popup timed out after 30 seconds; "
+            "Regular-mail popup timed out; "
             "message moved to MailFlag pending state."
         )
 
@@ -2509,11 +2518,17 @@ def main():
     GLib.idle_add(pending_indicator.refresh)
     GLib.idle_add(tray_indicator.refresh)
 
+    control = ControlServer(CONFIG_DIR / "control.sock", lambda command: (
+        GLib.idle_add(Gtk.main_quit) if command == "stop" else None
+    ))
+    control.start()
     try:
         Gtk.main()
     except KeyboardInterrupt:
         print()
         print("MailFlag stopped.")
+    finally:
+        control.close()
 
 
 if __name__ == "__main__":

@@ -37,12 +37,22 @@ class DesktopAutostart(AutostartService):
     def __init__(self, path): self.path = path
     def enable(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        app = Path.home() / ".local/share/applications/mailflag.desktop"
-        self.path.write_text(app.read_text(encoding="utf-8"), encoding="utf-8")
+        self.path.write_text(
+            "[Desktop Entry]\nType=Application\nName=MailFlag\n"
+            "Exec=/usr/bin/mailflag --background\nIcon=mailflag\n"
+            "Terminal=false\nX-GNOME-Autostart-enabled=true\n",
+            encoding="utf-8",
+        )
     def disable(self):
-        try: self.path.unlink()
-        except FileNotFoundError: pass
-    def is_enabled(self): return self.path.is_file()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(
+            "[Desktop Entry]\nType=Application\nName=MailFlag\nHidden=true\n",
+            encoding="utf-8",
+        )
+    def is_enabled(self):
+        if self.path.is_file():
+            return "Hidden=true" not in self.path.read_text(encoding="utf-8")
+        return Path("/etc/xdg/autostart/mailflag.desktop").is_file()
 
 
 class LinuxPlatform(PlatformServices):

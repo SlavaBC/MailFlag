@@ -1,6 +1,6 @@
 # Future Windows port
 
-MailFlag 0.13.1-beta1 remains a Linux beta, not a Windows build.
+MailFlag 0.14.0-beta1 remains a Linux beta, not a Windows build.
 The portable domain code lives in `mailflag/core`, provider data in
 `mailflag/providers`, and operating-system operations behind
 `mailflag/platform/base.py`.

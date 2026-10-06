@@ -1,0 +1,36 @@
+.TH MAILFLAG 1 "October 2026" "MailFlag" "User Commands"
+.SH NAME
+mailflag \- lightweight background mail and verification-code notifier
+.SH SYNOPSIS
+.B mailflag
+.RI [ OPTION ]
+.SH OPTIONS
+.TP
+.B --settings
+Open the graphical settings window. This is the default menu action.
+.TP
+.B --background
+Run mail monitoring without opening Settings. Used by desktop autostart.
+.TP
+.B --add-account
+Add a Yahoo account using the terminal fallback.
+.TP
+.B --remove-account [ACCOUNT]
+Remove one local account, its pending state and keyring credential after confirmation. Server mail is not changed.
+.TP
+.B --configure-folders [ACCOUNT]
+Discover and choose existing monitored IMAP folders.
+.TP
+.B --demo
+Show an offline ordinary-mail popup demonstration.
+.TP
+.B --version
+Show the installed MailFlag version.
+.TP
+.B --help
+Show command help.
+.SH FILES
+.I ~/.config/mailflag/config.ini
+stores non-secret settings. Credentials are stored in Secret Service.
+.SH SEE ALSO
+The installed README is in /usr/share/doc/mailflag/README.md.
