@@ -39,6 +39,8 @@ for size in 48 64 128 256; do
     "$BUILD/usr/share/icons/hicolor/${size}x${size}/apps/mailflag.png"
 done
 cp "$SOURCE/README.md" "$SOURCE/ARCHITECTURE.md" "$SOURCE/BETA_CHECKLIST.md" \
+  "$SOURCE/CHANGELOG.md" "$SOURCE/PRIVACY.md" "$SOURCE/LICENSE" \
+  "$SOURCE/THIRD_PARTY_NOTICES.md" "$SOURCE/vendor/IMAP_TOOLS_LICENSE" \
   "$BUILD/usr/share/doc/mailflag/"
 printf '%s\n' 'imap-tools 1.15.0 is bundled under /opt/mailflag/vendor.' \
   > "$BUILD/usr/share/doc/mailflag/DEPENDENCIES"

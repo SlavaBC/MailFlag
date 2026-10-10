@@ -1,391 +1,50 @@
-# MailFlag 0.14.2-beta1
-
-Оформленная локальная beta MailFlag для Ubuntu / Linux Mint x86_64.
-Проверенная логика 0.12.6 сохранена, добавлены Debian package и независимый
-список контролируемых IMAP-папок для каждого аккаунта.
-
-## Изменения 0.14.2-beta1
-
-- Меню приложений открывает компактное GTK Settings с разделами Accounts,
-  Folders, Notifications, Startup и About; терминал для настройки не нужен.
-- Первый запуск показывает Welcome, Yahoo credentials, Test connection,
-  выбор реальных IMAP-папок и подтверждение завершения.
-- Settings работает отдельно от background monitor. Закрытие окна не прекращает
-  почтовый контроль. Autostart использует `mailflag --startup`: при чистом
-  первом запуске он открывает мастер, а после настройки запускает только фон.
-- Все окна Settings используют значок MailFlag и единый `WM_CLASS`, чтобы
-  Cinnamon связывал окно с правильной иконкой в панели. Длинный список папок помещён
-  в прокручиваемую область, а кнопки диалога всегда остаются видимыми.
-- Локальный Unix control socket с правами `0600` используется для явного Stop и
-  безопасного перезапуска background после изменения аккаунтов или папок.
-- Добавление, обновление и подтверждённое удаление аккаунта работают через GUI;
-  пароль остаётся только в Secret Service. Серверные письма не изменяются.
-- Настраиваются popup, звук и длительность 10/20/30/45/60 секунд. OTP использует
-  `min(30, выбранная длительность)`.
-- Добавлены `mailflag --help`, `mailflag --remove-account` и `man mailflag`.
-- Custom IMAP показан как будущий adapter и пока недоступен; рабочим provider
-  этой beta остаётся Yahoo.
-
-## Изменения 0.13.1-beta1
-
-- Обычный popup и pending review показывают полное RFC-поле отправителя в виде
-  `Display Name <email>`. MIME encoded-word, кириллица и акценты декодируются;
-  очень длинное имя ограничивается, но email остаётся видимым.
-- OTP-классификатор отклоняет годы 2025–2030 в обычном контексте и понимает
-  отрицания вроде `This is not a verification code` и
-  `No verification code is required`.
-- Явная инструкция `Use this verification code: 2026` всё ещё может корректно
-  распознать настоящий четырёхзначный OTP.
-- Все изменения ограничены sender presentation и OTP classifier; IMAP,
-  UID/UIDVALIDITY, popup actions и monitoring не менялись.
-
-## Изменения 0.13.0-beta1
-
-- Готовый `.deb` устанавливает программу, launcher, выбранную иконку четырёх
-  размеров и стандартный freedesktop autostart без venv или `pip install`.
-- `imap-tools 1.15.0` включён в `/opt/mailflag/vendor`; несовместимый системный
-  `python3-imap-tools` не используется.
-- Один процесс и один IMAP-сеанс на аккаунт обслуживают все выбранные папки.
-- `INBOX` сохраняет IDLE и десятисекундный safety-check. Дополнительные папки
-  проверяются каждые 30 секунд тем же сеансом.
-- `state.json` автоматически мигрирует на checkpoints и pending вида
-  `account → folder → UIDVALIDITY/UID`.
-- Delete, Spam, Mark as Read и OTP Trash проверяют точную исходную папку.
-- Message-ID используется только для подавления повторного уведомления между
-  папками; destructive actions по-прежнему используют folder/UIDVALIDITY/UID.
-- `mailflag --configure-folders [account]` получает существующие папки через
-  IMAP LIST и сохраняет выбор отдельно для аккаунта. `INBOX` обязателен;
-  Trash, Bulk/Junk, Sent и Drafts исключены из списка мониторинга.
-
-MailFlag 0.12.6 — чистый стабильный релиз после успешной проверки доставки в реальном
-Yahoo-аккаунте. Временная диагностика задержек удалена.
-
-## Изменения 0.12.6
-
-- Удалены JSONL-журнал, ротация, команда `--diagnostics` и все диагностические вызовы.
-- Установщик удаляет старые `diagnostics.jsonl` и `diagnostics.jsonl.1`.
-- Сохранены десятисекундное read-only обновление `INBOX`, watchdog и быстрое переподключение.
-
-## Изменения 0.12.5
-
-MailFlag 0.12.5 исправил задержку Yahoo: долгоживущая IMAP-сессия могла отвечать,
-но не обновлять состояние `INBOX`.
-
-- Каждый десятисекундный контрольный цикл повторно выбирает `INBOX` через безопасный
-  read-only `EXAMINE`.
-- `UIDNEXT` и `UIDVALIDITY` берутся из свежего ответа `EXAMINE`; `STATUS` остался как совместимый fallback.
-
-## Изменения 0.12.3
-
-MailFlag 0.12.3 быстрее обнаруживает зависшие IMAP-соединения и очищает pending
-по открытому аккаунту.
-
-- IDLE остаётся основным почти мгновенным механизмом. Контрольный цикл выполняется
-  раз в 10 секунд, сетевой тайм-аут ограничен 15 секундами.
-- Независимый watchdog закрывает сокет, если успешной проверки сервера не было
-  20 секунд. Значок сразу показывает проблему вместо устаревшего зелёного статуса.
-- Переподключение использует безопасную схему `3, 5, 10, 20, 40, 60` секунд и
-  возвращается к спокойному IDLE после успешного ответа.
-- В меню аккаунта показывается время последней успешной проверки.
-- `Open` из pending-review очищает все загруженные pending-письма только этого
-  аккаунта и возвращает пользователя к индикатору. Pending других аккаунтов и
-  письма, пришедшие после открытия review, сохраняются.
-
-## Изменения 0.12.2
-
-MailFlag 0.12.2 интегрирует улучшенный локальный OTP-классификатор и контрольный
-корпус v3 из 200 писем.
-
-- Перенесены OTP-константы, регулярные выражения, нормализация текста,
-  позиционные helpers, `classify_otp()` и совместимая `extract_code()`.
-- Сохранён интерфейс ядра 0.12.1: `classify()`, `confidence()`, `MessageType` и
-  `ClassificationResult`, поэтому рабочий popup/Trash-поток не менялся.
-- Активный regression-корпус обновлён до v3: 200 из 200 контрольных примеров.
-- Прежние корпуса сохранены как `otp_regression_v1.json` и
-  `otp_regression_v2.json` для исторической проверки.
-- Добавлены исходные локальные тесты улучшенного классификатора и отдельная
-  автоматическая проверка v3.
-
-### Надёжный preview обычного письма
-
-`mailflag.core.preview` сначала выбирает качественный `text/plain`, затем HTML
-preheader и только после этого видимый текст HTML. Из кандидатов удаляются
-служебные HTML-секции, скрытый заполнитель, zero-width символы, CSS и начальный
-boilerplate. Технический или бессодержательный результат отклоняется, поэтому
-popup остаётся без preview вместо показа HTML/CSS-мусора.
-
-Полный `extract_human_text()` использует тот же HTML-парсер, но не сокращает
-результат. OTP-классификатор получает именно этот полный видимый текст. Поэтому
-числа из CSS, class/id, комментариев, URL, tracking-параметров, изображений и
-вложений не входят в набор OTP-кандидатов.
-
-При выборе короткого preview отбрасываются одиночные кнопки и навигационные
-подписи (`Shop Now`, `Your Orders`, `Buy Again`), отдельные URL, приветствия и
-языковой boilerplate. Первый содержательный фрагмент сохраняет окружающий
-полезный текст. Формулировка `Enter the following code` считается сильным
-OTP-контекстом при наличии рядом отдельного цифрового кода.
-
-## Изменения 0.12.1
-
-- `mailflag.core.otp.classify(subject, body)` возвращает структурированный
-  `ClassificationResult`: `type`, точный `code`, `confidence`, `reason`.
-- Совместимая `extract_code()` сохранена для рабочего popup/Trash-потока.
-- В `tests/data/otp_regression.json` хранится adversarial-корпус v2 из 120
-  редактируемых примеров: 60 ожидаемых OTP и 60 ожидаемых NORMAL. Загрузчик
-  поддерживает документ с разделами `metadata` и `cases`.
-- Корпус включает явные OTP, false-positive traps, пограничные форматы и
-  20 обычных негативных писем. Для `123 456`, `123-456` и `ABC123` явно
-  зафиксировано текущее безопасное поведение NORMAL.
-- Reply/forward с OTP только в стандартно процитированном старом тексте даёт
-  NORMAL. HTML перед классификацией очищается от тегов.
-- Каждый JSON-кейс проверяет тип и точное значение кода. Итоговый отчёт выводит
-  TP/TN/FP/FN и требует нулевые FP/FN.
-- Массовый suite работает без Yahoo, IMAP, GTK, интернета и desktop session.
-- Полная ручная цепочка описана в `OTP_E2E_CHECKLIST.md`.
-
-Запуск только OTP-корпуса:
-
-```sh
-PYTHONPATH=vendor:. python3 -m unittest discover -s tests -p 'test_otp_detector.py' -v
-```
-
-## Изменения 0.12.0
-
-- Добавлено независимое ядро `mailflag/core`: аккаунты, модели сообщений,
-  OTP, UID-диапазоны, live/pending-классификация, reconnect/status, JSON-state
-  и точные IMAP-действия Read/Delete/Spam.
-- Yahoo вынесен в provider-профиль. IMAP Core и platform API не содержат
-  Yahoo-адресов или названий папок.
-- Создан platform API для безопасных credentials, автозапуска, путей,
-  suspend/resume, clipboard, звука, URL, браузера, mail client и уведомлений.
-- Linux backend сохраняет Secret Service, XDG, `.desktop`, BOOTTIME, GTK
-  clipboard и существующие аудиопроигрыватели.
-- Все config/state paths берутся из единого `AppPaths`. Старые файлы
-  `~/.config/mailflag/config.ini` и `state.json` читаются без миграции.
-- GTK UI оставлен для Linux, но Core не импортирует GTK и проверяется отдельно.
-- `windows.py` определяет границу будущей реализации; Windows-сборка в этом
-  выпуске намеренно не создаётся. План находится в `WINDOWS_PORT.md`.
-
-## Изменения 0.11.2
-
-- Слово `verification` само по себе больше не является признаком OTP.
-- Детектор требует сильную фразу (`verification code`, `your code is`,
-  `security code`, `one-time code`, `OTP`, `use code`, `login code`,
-  `authentication code` и разумные английские/русские варианты) и код рядом.
-- Цифровой код должен быть отдельным токеном из 4–8 цифр. Значения вроде
-  `c377668`, `build482913`, `482913rc` и `ref_482913` отклоняются.
-- Confidence scoring учитывает расстояние между фразой и кодом. Контекст
-  `run failed`, `workflow`, `build`, `test`, `branch`, `commit`, pipeline и
-  `Android verification` снижает уверенность; средняя и низкая уверенность
-  дают обычный popup.
-- Письмо GitHub `7776 … Run failed: Android verification … (c377668)` теперь
-  классифицируется как обычное. `Your verification code is 482913` остаётся OTP.
-- После верного распознавания прежняя цепочка не меняется: OTP popup, клик,
-  копирование кода, закрытие и перемещение точного письма в Trash.
-
-## Изменения 0.11.1
-
-- В режиме `Yahoo Webmail` кнопка Open просто открывает Yahoo Mail. Копирование
-  sender/subject/date и дополнительное системное уведомление удалены.
-- Open из pending review удаляет только локальное напоминание MailFlag, поэтому
-  бейдж сразу уменьшается. Само письмо не читается, не удаляется и не перемещается.
-- Yahoo IMAP IDLE по-прежнему реагирует сразу на серверное событие. Резервная
-  проверка UIDNEXT при пропущенном событии выполняется каждые 15 секунд вместо
-  60 секунд. Это уменьшает максимальную программную задержку, но телефон с
-  фирменным push Yahoo иногда всё равно может показать письмо раньше.
-
-## Изменения 0.11.0
-
-- В меню системного значка появился раздел `Open mail with`: `System default`
-  или `Yahoo Webmail`. По умолчанию выбран прежний режим `System default`.
-- `System default` по-прежнему запускает зарегистрированную в Linux почтовую
-  программу. MailFlag не обещает, что Thunderbird сможет перейти к конкретному
-  IMAP-письму.
-- `Yahoo Webmail` открывает стабильный адрес `https://mail.yahoo.com/`.
-  Браузер использует уже активный вход Yahoo; при двух аккаунтах пользователь
-  при необходимости переключает аккаунт в самом Yahoo Mail.
-- Для полученных писем сохраняется RFC `Message-ID`, sender, subject и дата рядом
-  с UID/UIDVALIDITY.
-- Open не выполняет IMAP-операций. В pending review оно закрывает локальное
-  напоминание; live popup закрывается без добавления в pending.
-- Yahoo не документирует стабильную ссылку на письмо по IMAP UID или Message-ID.
-  Поэтому внутренние URL Yahoo не используются, а Message-ID сохраняется для
-  будущей поддержки, если появится официальный механизм.
-
-## Изменения 0.10.4
-
-- Убрана прямоугольная дымка по границам GTK-окна: фон окна явно отключает изображение и системную тень.
-- Радиус внешней тени уменьшен с 30 до 14 пикселей, а прозрачные поля вокруг карточки увеличены до 20–28 пикселей. Тень больше не должна обрезаться прямоугольной границей окна.
-- Нижнее сиреневое затемнение ослаблено; фон стал светлее, рамка тоньше. Объём формируют мягкая контурная тень и верхний внутренний блик.
-- Расстояние между From, Subject и preview увеличено с 6 до 10 пикселей. В pending-окнах вертикальный интервал увеличен до 11 пикселей.
-
-## Изменения 0.10.3
-
-- Внутри popup добавлены явные поля: 22 пикселя слева и справа, 20 пикселей сверху и 22 пикселя снизу. Текст больше не касается округлённой рамки.
-- Ширина обычного popup увеличена до 520 пикселей, чтобы увеличенный шрифт и длинные строки переносились свободнее.
-- Кнопки получили минимальную внутреннюю высоту 34 пикселя, увеличенные отступы 8×14 пикселей, радиус 9 пикселей и расстояние 12 пикселей между соседними кнопками.
-- Эффект объёма усилен: более заметный переход от белого к сиреневому, двухпиксельная фиолетовая рамка, глубокая внешняя тень, верхний световой блик и нижнее внутреннее затемнение. Вокруг карточки оставлено отдельное прозрачное пространство для тени.
-
-## Изменения 0.10.2
-
-- Бейдж pending перенесён в левый верхний угол — на противоположную от красного флага сторону конверта.
-- Убрано очищение прямоугольной области под бейджем, которое показывало белый фон страницы. Сам бейдж и окно используют прозрачный фон.
-- Pending-индикатор поднят на 78 пикселей от нижнего края рабочей области, чтобы раскрытая нижняя панель не перекрывала конверт.
-- Все live и pending popup отображаются как округлённые карточки: радиус 22 пикселя, светлый градиент, тонкая фиолетовая рамка, внутренняя подсветка и объёмная тень. За скруглёнными углами используется настоящий прозрачный фон.
-
-## Исправление 0.10.1
-
-Исправлено зависание Yahoo IMAP IDLE, при котором значок оставался зелёным, но новые UID не обрабатывались. Сетевые операции теперь ограничены 30-секундным таймаутом. Отдельный watchdog проверяет время последнего успешного heartbeat; через 105 секунд без подтверждения он переводит аккаунт в ошибку, закрывает зависший сокет и запускает обычное безопасное переподключение. Неполученные письма после восстановления попадают в pending по прежней backlog-логике.
-
-## Изменения 0.10
-
-- Кнопки обычного письма получили постоянные цвета: Open — зелёный, Delete — красный, Spam — синий, Ignore — серый, Mark as Read — фиолетовый. Цвета одинаковы в живом popup и pending review.
-- Текст popup увеличен примерно на 20 процентов. Размер OTP-кода увеличен с 32 до 38 пунктов, заголовок обычного письма — с 16 до 19 пунктов.
-- В меню системного значка появился раздел `Notification sound`: стандартный звук, бесшумный режим, выбор собственного WAV/OGG/FLAC и проверка выбранного звука. Настройка сохраняется в существующем `config.ini`.
-- Новый pending-индикатор использует `MF.png` с конвертом и красным флагом целиком. Окно имеет прозрачный RGBA-фон; круглый красный бейдж находится в правом верхнем углу и показывает `1–99` или `99+`.
-- `MF.png` используется как значок MailFlag в меню программ и записи автозапуска. Установщик обновляет базу desktop-файлов.
-
-## Состояния значка
-
-- Зелёный: все настроенные аккаунты подключены и контролируют INBOX.
-- Жёлтый: MailFlag запускается или переподключается.
-- Оранжевый: часть аккаунтов подключена, часть недоступна.
-- Красный: ни один настроенный аккаунт не подключён.
-- Число рядом со значком: общее количество pending-писем.
-
-В меню значка видны оба аккаунта. Там можно открыть pending-почту, немедленно
-повторить подключение недоступных аккаунтов или завершить MailFlag. Автоматическое
-переподключение продолжает работать. Если контроль почты остаётся неполным 60
-секунд, MailFlag один раз показывает системное уведомление. После успешного
-восстановления следующий длительный сбой снова вызовет уведомление.
-
-Версия на базе точного исходника рабочей v0.7 multi-account. Yahoo остаётся рабочим провайдером. Полная настройка произвольного IMAP-провайдера — следующий этап; в этой версии она ещё не реализована. Новая операция прочтения принимает сервер и папку параметрами, без Yahoo-специфики.
-
-## Установка и обновление
-
-Основная установка для Ubuntu / Linux Mint x86_64:
-
-```sh
-cd /home/user/Documents/Codex/2026-09-13/MF/outputs/mailflag-0.13.0-beta1
-sudo apt install ./mailflag_0.14.2~beta1_amd64.deb
-```
-
-При переходе с прежнего `./install.sh` один раз удалите только старые
-пользовательские launcher/autostart-файлы:
-
-```sh
-mailflag-migrate-local
-```
-
-Команда не трогает `config.ini`, `state.json`, старые releases и keyring.
-
-APT автоматически устанавливает системные зависимости: Python 3, GTK 3,
-PyGObject, Cairo, Ayatana AppIndicator, Secret Service tools, `xdg-utils`,
-`libnotify-bin` и `pulseaudio-utils`. Python-библиотека `imap-tools 1.15.0`
-включена в пакет и не загружается из сети.
-
-Программа запускается из меню или командой:
-
-```sh
-mailflag
-```
-
-Откройте MailFlag из меню. Первый запуск проведёт через добавление Yahoo,
-проверку соединения и выбор папок. Терминальные команды сохранены как fallback:
-
-```sh
-mailflag --add-account
-```
-
-Выбор дополнительных папок с IMAP discovery:
-
-```sh
-mailflag --configure-folders
-# или сразу для конкретного аккаунта:
-mailflag --configure-folders account@example.test
-```
-
-После изменения списка перезапустите MailFlag. `INBOX` всегда включён. Папки
-не создаются и не переименовываются: команда позволяет выбрать только уже
-существующие папки, полученные через IMAP LIST.
-
-Автозапуск устанавливается системным freedesktop-файлом
-`/etc/xdg/autostart/mailflag.desktop`. Он действует после следующего login и
-не зависит от Cinnamon. Защита `~/.config/mailflag/instance.lock` не позволяет
-второму процессу создавать дополнительные соединения или popup.
-
-Обновление выполняется той же командой `sudo apt install ./новый.deb`.
-Пакетные файлы отделены от `~/.config/mailflag` и Secret Service, поэтому
-аккаунты, folder settings, state, pending и credentials сохраняются.
-
-Удаление программы:
-
-```sh
-sudo apt remove mailflag
-```
-
-Даже `apt purge mailflag` не удаляет файлы из домашней папки и keyring.
-Полное ручное удаление пользовательских данных выполняйте только осознанно
-после удаления пакета. Package scripts не подключаются к IMAP и не выполняют
-никаких действий с письмами.
-
-Для разработческой установки без `.deb` сохранён прежний `./install.sh`.
-Он также использует vendored `imap-tools` и не требует интернета.
-
-Проверка автозапуска: завершите MailFlag через меню значка, выполните logout/login
-и убедитесь, что зелёный значок появился один раз. Повторный ручной запуск должен
-вывести `MailFlag is already running.`
-
-## Что сохранено из 0.8
-
-- Звук для живого нового письма, включая письмо, пришедшее при занятом интерфейсе. Backlog после запуска/сна не проигрывает каскад звуков. Близкие события объединяются по звуку в пределах 0,5 секунды. Используется доступный `paplay`, `pw-play` или `aplay`.
-- Open, Delete, Spam, Ignore, Mark as read в обычном popup и в pending review; кнопки размещены в двух строках.
-- Ignore закрывает живой popup без IMAP-операции и без pending. В pending review убирает только локальное напоминание о текущем письме и переходит к следующему. Письмо на сервере не меняется.
-- Mark as read использует отдельное IMAP-соединение, проверяет положительный одиночный UID, UIDVALIDITY и совпадение найденного UID. Добавляет только `\Seen`, затем проверяет результат. Ошибка или неподтверждённый результат оставляют письмо в pending.
-- Обычный popup имеет целевую ширину 440 пикселей. From, Subject и preview используют перенос WORD_CHAR, включая длинные адреса без пробелов. Для компактности отображается до трёх строк каждого поля с многоточием; это предпросмотр, не полное письмо.
-- Сохранены OTP click-to-copy + Trash, нижний pending-флажок, прежние state/checkpoint, backlog и reconnect/suspend. Короткий reconnect до 90 секунд без сна остаётся live; запуск, сон и длинный обрыв — pending.
-- Исправлен унаследованный литерал специального флага Trash в обработчике обычного письма.
-
-Spam сохраняет проверенный Yahoo fallback `Bulk`. Другие провайдеры в этой сборке не добавлялись.
-
-## Проверка установленного пакета без почты
-
-```sh
-mailflag --version
-mailflag --demo
-```
-
-Demo показывает обычный popup с очень длинными полями. Его действия подменены: сеть, keyring и состояние почты не используются. Звук можно проверить отдельно:
-
-```sh
-paplay /opt/mailflag/mailflag/notification.wav
-```
-
-Тесты из каталога исходной сборки:
-
-```sh
-PYTHONPATH=. python3 -m unittest discover -s tests -v
-```
-
-В beta-сборке проходят 530 локальных тестов, включая OTP regression corpus
-200/200 с метриками TP=100, TN=100, FP=0, FN=0, preview regression,
-per-folder state, source-folder actions, single-instance и package metadata.
-Реальная почта, браузер и пароли автоматическими тестами не используются.
-Системный launcher сначала переходит в `/opt/mailflag`, поэтому одноимённый
-старый файл `mailflag.py` в домашней или другой текущей папке не может подменить
-установленный пакет Python.
-
-## Проверка с вашими аккаунтами
-
-1. Обычное письмо: один popup и звук. Проверить отдельно все пять кнопок на тестовых письмах. Ignore должен оставить письмо непрочитанным и не увеличивать pending; Mark as read — прочитать только выбранное письмо нужного аккаунта.
-2. В меню значка выбрать `Open mail with → System default`, нажать Open и проверить запуск Thunderbird. Затем выбрать `Yahoo Webmail`: браузер должен открыть Yahoo Mail без изменения буфера обмена. Проверить, что письмо не прочитано и не перемещено, а бейдж pending уменьшился.
-3. Длинные From/Subject/текст: окно компактное, переносы видны. Проверьте также окно из pending indicator.
-4. OTP: клик копирует код и перемещает письмо в Trash.
-5. Не нажимать 30 секунд: письмо становится pending. Одновременные письма с двух аккаунтов не накладывают popup.
-6. Короткий обрыв без сна: свежая почта — live. Сон, длинный обрыв и перезапуск: накопленная почта — только индикатор.
-7. Отключить сеть больше чем на минуту: значок становится красным и появляется одно системное уведомление. После включения сети значок должен пройти через жёлтый в зелёный. При отказе только одного аккаунта ожидается оранжевый цвет.
-8. Выйти из пользовательской сессии и войти: MailFlag запускается автоматически. Если keyring не разблокировался, значок остаётся красным, а меню показывает ошибку соответствующего аккаунта.
-
-## Файлы
-
-`mailflag/core` — переносимое ядро; `providers` — профили почтовых сервисов; `platform/base.py` — контракт ОС; `platform/linux.py` — текущая Linux-реализация; `platform/windows.py` — намеренная заготовка; `app.py` — GTK UI и сборка компонентов; `opening.py`, `sound.py`, `setup_account.py` используют platform API; `vendor/imap_tools` — локальная копия 1.15.0 для установки без сети. Подробности находятся в `ARCHITECTURE.md` и `WINDOWS_PORT.md`.
+# MailFlag
+
+MailFlag is a lightweight desktop email notifier for Linux. It connects directly to your mailbox over IMAP and watches for new mail in the background, so you do not need to keep webmail or a full email client open just to catch a verification code or an important message.
+
+## Why MailFlag
+
+MailFlag is especially useful when you are waiting for a verification code, one-time password (OTP), or sign-in code by email.
+
+Instead of opening webmail, refreshing your inbox, finding the message, opening it, selecting the code, and copying it manually, MailFlag detects the code as soon as the message arrives and shows it in a dedicated popup. One click copies the code to the clipboard — then you simply paste it where you need it.
+
+For ordinary email, MailFlag works as a lightweight desktop notification layer, showing the sender, subject, preview, and quick actions without requiring a full mail client to stay open.
+
+
+## Current Features
+
+- Near-real-time IMAP monitoring with IDLE where supported.
+- Multiple email accounts in one MailFlag instance.
+- Per-account monitored folders, including folders used by server-side mail filters.
+- OTP / verification-code detection with one-click copy to the clipboard.
+- Compact popup for ordinary mail with sender, subject, and a short preview.
+- Quick actions: Open, Delete, Spam, Ignore, and Mark as Read.
+- Persistent pending indicator for messages that were not handled while the popup was visible.
+- Recovery after reconnect, temporary network loss, sleep/resume, and application restart without replaying a storm of old popups.
+- Graphical settings for accounts and monitored folders.
+- Credentials stored in the Linux system keyring rather than in plain-text configuration files.
+- Local processing of message content. MailFlag does not send your email content, verification codes, or credentials to MailFlag-operated servers.
+- No analytics, advertising, or telemetry.
+
+## Current Limitations
+
+- MailFlag is currently focused on Linux and is being tested primarily on Linux Mint 22.x.
+- MailFlag currently supports Yahoo Mail only. Support for additional email providers is planned.
+
+We would be very happy to hear from users about which providers they would like to see next. Feedback and real-world use cases will help us decide what to prioritize, and we are open to adding other IMAP providers as demand grows.
+
+If you would like MailFlag to support Gmail, Outlook, iCloud, Proton Mail, or another provider, please let us know through the project's GitHub repository.
+
+- MailFlag is not a full email client. It is a notifier and quick-action tool; reading and composing mail still happens in your normal mail application or webmail.
+- If a server-side filter sends new mail directly to a folder other than Inbox, that folder must be added to MailFlag's monitored folders.
+- The Open action may open your default mail client or webmail rather than deep-linking to the exact message, depending on the provider and desktop environment.
+- OTP detection is heuristic. The classifier is tested against positive, negative, and real-world regression cases, but unusual message formats may still produce false positives or false negatives.
+- Windows and macOS versions are not available yet.
+
+## Status
+
+MailFlag is under active development and is being prepared for public beta testing. The current focus is stability, privacy, clean installation and removal, and a simple user experience without requiring terminal commands for normal use.
+
+## License
+
+MailFlag is licensed under the GNU General Public License v3.0.

@@ -44,6 +44,20 @@ class PackagingTests(unittest.TestCase):
         control = (ROOT / 'packaging/debian/control').read_text()
         self.assertNotIn('python3-imap-tools', control)
 
+    def test_project_and_vendored_dependency_licenses_are_packaged(self):
+        license_text = (ROOT / 'LICENSE').read_text()
+        self.assertIn('GNU GENERAL PUBLIC LICENSE', license_text)
+        self.assertIn('Version 3, 29 June 2007', license_text)
+
+        imap_license = (ROOT / 'vendor/IMAP_TOOLS_LICENSE').read_text()
+        self.assertIn('Apache License', imap_license)
+        self.assertIn('Version 2.0, January 2004', imap_license)
+
+        build = (ROOT / 'build-deb.sh').read_text()
+        for document in ('LICENSE', 'THIRD_PARTY_NOTICES.md',
+                         'IMAP_TOOLS_LICENSE'):
+            self.assertIn(document, build)
+
     def test_selected_icon_sizes_are_packaged(self):
         for size in (48, 64, 128, 256):
             self.assertTrue((ROOT / f'packaging/icons/mailflag-{size}.png').is_file())

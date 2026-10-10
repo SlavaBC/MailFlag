@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest a MailFlag improvement or email-provider integration
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not include passwords, App Passwords, OTP or verification codes, access tokens, or private email content.
+  - type: textarea
+    id: feature
+    attributes:
+      label: Requested feature
+      description: Describe the behavior you would like MailFlag to provide.
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: Explain when and how you would use this feature.
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Email provider, if relevant
+      placeholder: Gmail, Outlook, iCloud, another IMAP provider, or not applicable
+  - type: textarea
+    id: value
+    attributes:
+      label: Why would this be useful?
+    validations:
+      required: true

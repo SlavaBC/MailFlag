@@ -1,3 +1,50 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# Local environments and Python build output
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# MailFlag runtime data and credentials
+config.ini
+state.json
+diagnostics.jsonl
+*.keyring
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Generated packages, logs, and temporary output
+*.deb
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*~
+
+# Local editor and desktop metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# User-supplied public-beta media (kept out until approved)
+docs/images/*
+!docs/images/.gitkeep
+docs/media/*
+!docs/media/.gitkeep

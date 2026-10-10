@@ -95,8 +95,8 @@ class PreviewExtractorTests(unittest.TestCase):
             "Tom & Jerry confirmed delivery.",
         )
 
-    def test_real_walmart_html_only_message(self):
-        path = DATA / "walmart_shipping_real.eml"
+    def test_regression_walmart_html_only_message(self):
+        path = DATA / "walmart_shipping_regression.eml"
         message = BytesParser(policy=policy.default).parsebytes(path.read_bytes())
         preview = extract_message_preview(message)
         self.assertEqual(
@@ -113,26 +113,26 @@ class PreviewExtractorTests(unittest.TestCase):
         )
         self.assertNotRegex(preview, r"padding:|margin:|@media|!important")
 
-    def test_real_capital_one_skips_language_boilerplate(self):
+    def test_regression_capital_one_skips_language_boilerplate(self):
         message = BytesParser(policy=policy.default).parsebytes(
-            (DATA / "capital_one_payment_real.eml").read_bytes()
+            (DATA / "capital_one_payment_regression.eml").read_bytes()
         )
         preview = extract_message_preview(message)
         self.assertTrue(preview.startswith("Thanks for your payment of $100.00."), preview)
         self.assertNotIn("Défilez vers le bas", preview)
 
-    def test_real_amazon_skips_navigation_and_urls(self):
+    def test_regression_amazon_skips_navigation_and_urls(self):
         message = BytesParser(policy=policy.default).parsebytes(
-            (DATA / "amazon_shipped_real.eml").read_bytes()
+            (DATA / "amazon_shipped_regression.eml").read_bytes()
         )
         preview = extract_message_preview(message)
         self.assertTrue(preview.startswith("Your package was shipped!"), preview)
         self.assertNotIn("https://", preview)
         self.assertNotIn("Your Orders", preview)
 
-    def test_real_roku_does_not_use_shop_now_preheader(self):
+    def test_regression_roku_does_not_use_shop_now_preheader(self):
         message = BytesParser(policy=policy.default).parsebytes(
-            (DATA / "roku_signin_real.eml").read_bytes()
+            (DATA / "roku_signin_regression.eml").read_bytes()
         )
         preview = extract_message_preview(message)
         self.assertTrue(preview.startswith("Signing in? Are you trying to sign in"), preview)

@@ -55,7 +55,7 @@ class HtmlSafeOtpPipeline(unittest.TestCase):
             "<p>Your parcel was delivered.</p>"
         )
 
-    def test_real_otp_in_visible_html(self):
+    def test_regression_otp_in_visible_html(self):
         body, result = classify_parts(
             "Sign-in request",
             html="<style>.code-778899{color:red}</style><p>Your verification code is <b>482913</b>.</p>",
@@ -63,7 +63,7 @@ class HtmlSafeOtpPipeline(unittest.TestCase):
         self.assertIn("482913", body)
         self.assertEqual((result["type"], result["code"]), ("OTP", "482913"))
 
-    def test_real_otp_in_plain_text(self):
+    def test_regression_otp_in_plain_text(self):
         body, result = classify_parts(
             "Security code",
             plain="Use this code to sign in: 8841",
@@ -91,8 +91,8 @@ class HtmlSafeOtpPipeline(unittest.TestCase):
         self.assertIn("111222", body)
         self.assertEqual((result["type"], result["code"]), ("OTP", "482913"))
 
-    def test_real_walmart_delivered_message_is_normal(self):
-        path = DATA / "walmart_delivered_real.eml"
+    def test_regression_walmart_delivered_message_is_normal(self):
+        path = DATA / "walmart_delivered_regression.eml"
         message = BytesParser(policy=policy.default).parsebytes(path.read_bytes())
         body = extract_message_text(message)
         result = classify_otp(str(message["Subject"]), body)
@@ -114,9 +114,9 @@ class HtmlSafeOtpPipeline(unittest.TestCase):
         self.assertNotIn("278509", body)
         self.assertEqual(result["type"], "NORMAL")
 
-    def test_real_roku_signin_message_is_otp(self):
+    def test_regression_roku_signin_message_is_otp(self):
         message = BytesParser(policy=policy.default).parsebytes(
-            (DATA / "roku_signin_real.eml").read_bytes()
+            (DATA / "roku_signin_regression.eml").read_bytes()
         )
         body = extract_message_text(message)
         result = classify_otp(str(message["Subject"]), body)

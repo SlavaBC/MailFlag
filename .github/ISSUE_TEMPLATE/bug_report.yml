@@ -1,0 +1,77 @@
+name: Bug report
+description: Report a reproducible problem in MailFlag
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve MailFlag.
+
+        **Privacy warning:** Do not publish passwords, App Passwords, OTP or verification codes, access tokens, or private email content that you do not want to disclose. Remove or mask sensitive details from logs and screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: MailFlag version
+      placeholder: 0.14.2-beta1
+    validations:
+      required: true
+  - type: input
+    id: linux
+    attributes:
+      label: Linux distribution and version
+      placeholder: Linux Mint 22.x
+    validations:
+      required: true
+  - type: input
+    id: desktop
+    attributes:
+      label: Desktop environment
+      placeholder: Cinnamon, GNOME, KDE Plasma, etc.
+  - type: input
+    id: provider
+    attributes:
+      label: Email provider
+      placeholder: Yahoo Mail
+    validations:
+      required: true
+  - type: input
+    id: accounts
+    attributes:
+      label: Number of configured accounts
+      placeholder: "2"
+  - type: input
+    id: folder
+    attributes:
+      label: Monitored folder involved
+      placeholder: INBOX or another configured folder
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal numbered sequence.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Remove or mask email addresses, message content, credentials, tokens, and verification codes.
+      render: shell
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Attach screenshots only after checking that they contain no private email content or credentials.
