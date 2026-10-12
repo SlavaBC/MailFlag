@@ -2490,6 +2490,19 @@ def start_account_worker(email, password):
     return worker
 
 
+def stop_all_account_workers(timeout=2.5):
+    """Stop monitoring threads and interrupt IDLE sockets during app exit."""
+    for stop_event in tuple(ACCOUNT_STOP_EVENTS.values()):
+        stop_event.set()
+    for email in tuple(ACCOUNT_WORKERS):
+        interrupt_stale_mailbox(email)
+    deadline = time.monotonic() + timeout
+    for worker in tuple(ACCOUNT_WORKERS.values()):
+        worker.join(timeout=max(0.0, deadline - time.monotonic()))
+    for email in tuple(ACCOUNT_WORKERS):
+        unregister_active_mailbox(email)
+
+
 def remove_runtime_account(email):
     snapshot = CONNECTION_STATUS.snapshot() if CONNECTION_STATUS else {}
     if email not in snapshot:
@@ -2621,6 +2634,7 @@ def main():
         print()
         print("MailFlag stopped.")
     finally:
+        stop_all_account_workers()
         control.close()
 
 

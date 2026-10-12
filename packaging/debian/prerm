@@ -1,0 +1,54 @@
+#!/bin/sh
+# Stop all installed MailFlag instances before dpkg removes their Python files.
+set -u
+
+mailflag_pids() {
+    /usr/bin/python3 - <<'PY'
+from pathlib import Path
+import os
+
+for entry in Path('/proc').iterdir():
+    if not entry.name.isdigit() or int(entry.name) == os.getpid():
+        continue
+    try:
+        argv = [part.decode('utf-8', 'replace') for part in
+                (entry / 'cmdline').read_bytes().split(b'\0') if part]
+    except (FileNotFoundError, PermissionError):
+        continue
+    is_mailflag = any(argv[index:index + 2] == ['-m', 'mailflag']
+                      for index in range(len(argv) - 1))
+    if is_mailflag and '--shutdown' not in argv:
+        print(entry.name)
+PY
+}
+
+wait_for_exit() {
+    attempts=$1
+    while [ "$attempts" -gt 0 ]; do
+        [ -z "$(mailflag_pids)" ] && return 0
+        sleep 1
+        attempts=$((attempts - 1))
+    done
+    return 1
+}
+
+# Absence of the command or an already-stopped application is normal.
+if [ -x /usr/bin/mailflag ]; then
+    /usr/bin/mailflag --shutdown >/dev/null 2>&1 || true
+fi
+
+wait_for_exit 3 || true
+pids=$(mailflag_pids)
+if [ -n "$pids" ]; then
+    kill -TERM $pids 2>/dev/null || true
+    wait_for_exit 2 || true
+fi
+
+pids=$(mailflag_pids)
+if [ -n "$pids" ]; then
+    kill -KILL $pids 2>/dev/null || true
+    wait_for_exit 1 || true
+fi
+
+# Never block removal because a desktop process was already gone or unresponsive.
+exit 0

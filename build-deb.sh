@@ -1,8 +1,9 @@
 #!/bin/sh
 set -eu
 SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-VERSION=0.14.3~beta1
+VERSION=0.14.4~beta1
 PACKAGE=mailflag_${VERSION}_amd64.deb
+OUTPUT_DIR=$(CDPATH= cd -- "$SOURCE/.." && pwd)
 BUILD=$(mktemp -d "${TMPDIR:-/tmp}/mailflag-deb.XXXXXX")
 cleanup() { rm -rf "$BUILD"; }
 trap cleanup EXIT HUP INT TERM
@@ -11,6 +12,7 @@ mkdir -p "$BUILD/DEBIAN" "$BUILD/opt/mailflag" "$BUILD/usr/bin" \
   "$BUILD/usr/share/doc/mailflag" "$BUILD/usr/share/man/man1"
 cp "$SOURCE/packaging/debian/control" "$BUILD/DEBIAN/control"
 cp "$SOURCE/packaging/debian/postinst" "$BUILD/DEBIAN/postinst"
+cp "$SOURCE/packaging/debian/prerm" "$BUILD/DEBIAN/prerm"
 cp "$SOURCE/packaging/debian/postrm" "$BUILD/DEBIAN/postrm"
 cp -R "$SOURCE/mailflag" "$BUILD/opt/mailflag/"
 cp -R "$SOURCE/vendor" "$BUILD/opt/mailflag/"
@@ -45,8 +47,9 @@ cp "$SOURCE/README.md" "$SOURCE/ARCHITECTURE.md" "$SOURCE/BETA_CHECKLIST.md" \
 printf '%s\n' 'imap-tools 1.15.0 is bundled under /opt/mailflag/vendor.' \
   > "$BUILD/usr/share/doc/mailflag/DEPENDENCIES"
 chmod -R u=rwX,go=rX "$BUILD"
-chmod 755 "$BUILD/DEBIAN/postinst" "$BUILD/DEBIAN/postrm" \
+chmod 755 "$BUILD/DEBIAN/postinst" "$BUILD/DEBIAN/prerm" \
+  "$BUILD/DEBIAN/postrm" \
   "$BUILD/opt/mailflag/run" "$BUILD/usr/bin/mailflag" \
   "$BUILD/usr/bin/mailflag-migrate-local"
-dpkg-deb --build --root-owner-group "$BUILD" "$SOURCE/$PACKAGE"
-printf '%s\n' "$SOURCE/$PACKAGE"
+dpkg-deb --build --root-owner-group "$BUILD" "$OUTPUT_DIR/$PACKAGE"
+printf '%s\n' "$OUTPUT_DIR/$PACKAGE"

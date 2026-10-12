@@ -15,6 +15,7 @@ from mailflag.platform.base import AppPaths
 from mailflag.core.state import read_store, write_store
 from mailflag.settings_service import POPUP_DURATIONS, SettingsService, otp_timeout
 from mailflag import remove_account as remove_module
+from mailflag import shutdown as shutdown_module
 
 
 class FakeCredentials:
@@ -179,6 +180,47 @@ class IpcTests(unittest.TestCase):
     def test_missing_background_socket_is_harmless(self):
         with tempfile.TemporaryDirectory() as directory:
             self.assertFalse(send_command(Path(directory) / "missing.sock", "stop"))
+
+
+class ShutdownTests(unittest.TestCase):
+    def test_process_scan_matches_only_mailflag_module(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cases = {
+                101: ["/usr/bin/python3", "-m", "mailflag", "--background"],
+                102: ["/usr/bin/python3", "-m", "mailflag", "--settings"],
+                103: ["/usr/bin/python3", "-m", "other_app", "--background"],
+                104: ["/usr/bin/python3", "worker-mailflag.py"],
+                105: ["/usr/bin/python3", "-m", "mailflag", "--shutdown"],
+            }
+            for pid, argv in cases.items():
+                process = root / str(pid)
+                process.mkdir()
+                (process / "cmdline").write_bytes(
+                    b"\0".join(item.encode() for item in argv) + b"\0"
+                )
+                (process / "status").write_text("Name:\tpython3\nUid:\t1000 1000 1000 1000\n")
+            found = shutdown_module.mailflag_processes(root)
+            self.assertEqual([pid for pid, _uid, _argv in found], [101, 102])
+
+    def test_graceful_shutdown_contacts_both_sockets_for_each_user(self):
+        processes = [
+            (101, 1000, ["python3", "-m", "mailflag", "--background"]),
+            (102, 1000, ["python3", "-m", "mailflag", "--settings"]),
+            (201, 1001, ["python3", "-m", "mailflag", "--background"]),
+        ]
+        homes = {1000: Path("/home/one"), 1001: Path("/home/two")}
+        with patch.object(shutdown_module, "mailflag_processes", return_value=processes), \
+             patch.object(shutdown_module, "_home_for_uid", side_effect=homes.get), \
+             patch.object(shutdown_module, "send_command", return_value=True) as send:
+            self.assertEqual(shutdown_module.graceful_shutdown(), 4)
+        paths = {call.args[0] for call in send.call_args_list}
+        self.assertEqual(paths, {
+            Path("/home/one/.config/mailflag/control.sock"),
+            Path("/home/one/.config/mailflag/settings-control.sock"),
+            Path("/home/two/.config/mailflag/control.sock"),
+            Path("/home/two/.config/mailflag/settings-control.sock"),
+        })
 
 
 class RemoveAccountCliTests(unittest.TestCase):

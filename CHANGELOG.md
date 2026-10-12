@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.4-beta1
+
+- Stop background monitoring and Settings cleanly during Debian package removal.
+- Add the headless `mailflag --shutdown` lifecycle command for all active users.
+- Add a narrowly scoped `prerm` fallback using TERM, then KILL only for stuck
+  `python -m mailflag` processes; user configuration and credentials remain.
+
 All notable changes to MailFlag will be documented in this file.
 
 ## 0.14.3-beta1

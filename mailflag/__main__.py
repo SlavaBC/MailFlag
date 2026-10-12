@@ -11,6 +11,7 @@ HELP = """Usage: mailflag [OPTION]
   --settings                    open the graphical settings window
   --background                  run mail monitoring without opening Settings
   --startup                     first-run-aware desktop-session startup
+  --shutdown                    stop running MailFlag processes
   --add-account                 add a Yahoo account in the terminal
   --remove-account [ACCOUNT]    remove one local account safely
   --configure-folders [ACCOUNT] choose monitored IMAP folders
@@ -27,12 +28,25 @@ def should_open_settings(arguments, accounts):
     return '--settings' in arguments or '--background' not in arguments
 
 
+def _handle_settings_control(command):
+    """Schedule a clean GTK exit without touching background monitoring."""
+    if command != 'stop':
+        raise ValueError(f"Unknown settings control command: {command}")
+    from gi.repository import GLib, Gtk
+    GLib.idle_add(Gtk.main_quit)
+    return "OK"
+
+
 def main():
     if '--help' in sys.argv:
         print(HELP)
         return
     if '--version' in sys.argv:
         print(f'MailFlag {__version__}')
+        return
+    if '--shutdown' in sys.argv:
+        from .shutdown import graceful_shutdown
+        graceful_shutdown()
         return
     if '--configure-folders' in sys.argv:
         from .folders import configure_folders
@@ -77,6 +91,7 @@ def main():
     open_settings = should_open_settings(sys.argv[1:], accounts)
     if open_settings:
         from .settings_gui import run_settings
+        from .ipc import ControlServer
         directory = get_platform().paths.config_dir
         directory.mkdir(parents=True, exist_ok=True)
         settings_lock = acquire_instance_lock(directory / 'settings.lock')
@@ -84,7 +99,15 @@ def main():
             print('MailFlag Settings is already open.')
             return
         with settings_lock:
-            run_settings()
+            control = ControlServer(
+                directory / 'settings-control.sock',
+                lambda command: _handle_settings_control(command),
+            )
+            control.start()
+            try:
+                run_settings()
+            finally:
+                control.close()
         return
     directory = get_platform().paths.config_dir
     directory.mkdir(parents=True, exist_ok=True)

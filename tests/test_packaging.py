@@ -12,8 +12,8 @@ ROOT = Path(__file__).parents[1]
 class PackagingTests(unittest.TestCase):
     def test_version_metadata_is_consistent(self):
         control = (ROOT / 'packaging/debian/control').read_text()
-        self.assertEqual(__version__, '0.14.3-beta1')
-        self.assertEqual(DEBIAN_VERSION, '0.14.3~beta1')
+        self.assertEqual(__version__, '0.14.4-beta1')
+        self.assertEqual(DEBIAN_VERSION, '0.14.4~beta1')
         self.assertIn(f'Version: {DEBIAN_VERSION}', control)
         self.assertIn(f'VERSION={DEBIAN_VERSION}',
                       (ROOT / 'build-deb.sh').read_text())
@@ -32,11 +32,31 @@ class PackagingTests(unittest.TestCase):
     def test_package_scripts_never_touch_mail_or_user_state(self):
         scripts = '\n'.join(
             (ROOT / f'packaging/debian/{name}').read_text()
-            for name in ('postinst', 'postrm')
+            for name in ('postinst', 'prerm', 'postrm')
         ).lower()
         for forbidden in ('imap', 'config.ini', 'state.json', 'secret-tool',
                           'mailbox', 'trash', 'bulk'):
             self.assertNotIn(forbidden, scripts)
+
+    def test_prerm_stops_only_python_module_mailflag_processes(self):
+        script = (ROOT / 'packaging/debian/prerm').read_text()
+        self.assertIn('/usr/bin/mailflag --shutdown', script)
+        self.assertIn("['-m', 'mailflag']", script)
+        self.assertIn('kill -TERM $pids', script)
+        self.assertIn('kill -KILL $pids', script)
+        self.assertNotIn('pkill', script)
+        self.assertNotIn('killall', script)
+        self.assertIn('# Never block removal', script)
+
+    def test_prerm_is_packaged_as_executable_maintainer_script(self):
+        build = (ROOT / 'build-deb.sh').read_text()
+        self.assertIn('packaging/debian/prerm', build)
+        self.assertIn('$BUILD/DEBIAN/prerm', build)
+
+    def test_finished_debian_package_goes_to_shared_outputs_directory(self):
+        build = (ROOT / 'build-deb.sh').read_text()
+        self.assertIn('OUTPUT_DIR=$(CDPATH= cd -- "$SOURCE/.."', build)
+        self.assertIn('"$OUTPUT_DIR/$PACKAGE"', build)
 
     def test_compatible_imap_tools_is_vendored(self):
         init = (ROOT / 'vendor/imap_tools/__init__.py').read_text()
