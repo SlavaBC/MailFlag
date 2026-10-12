@@ -1,4 +1,5 @@
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -76,6 +77,15 @@ class ConnectionHealth(unittest.TestCase):
         snapshot['a']['state'] = 'error'
         self.assertEqual(status.aggregate(), 'connecting')
 
+    def test_removed_account_disappears_without_affecting_other(self):
+        status = ConnectionStatus(['a', 'b'])
+        status.update('b', 'connected', 'Connected')
+        self.assertTrue(status.remove('a'))
+        self.assertEqual(list(status.snapshot()), ['b'])
+        self.assertEqual(status.aggregate(), 'online')
+        self.assertFalse(status.remove('missing'))
+
+
     def test_stale_connected_account(self):
         snapshot = {
             'fresh': {'state': 'connected', 'last_connected_at': 100},
@@ -110,6 +120,40 @@ class ConnectionHealth(unittest.TestCase):
         snapshot = status.snapshot()['a']
         self.assertEqual(snapshot['state'], 'error')
         self.assertIn('reconnecting', snapshot['detail'])
+
+
+class RuntimeAccountRemoval(unittest.TestCase):
+    def test_only_selected_worker_and_runtime_state_are_removed(self):
+        old = (
+            app.CONNECTION_STATUS, app.APP_ACCOUNTS,
+            app.APP_MONITORED_FOLDERS, app.ACCOUNT_STOP_EVENTS,
+            app.ACCOUNT_WORKERS,
+        )
+        self.addCleanup(self._restore, old)
+        app.CONNECTION_STATUS = ConnectionStatus(['a', 'b'])
+        app.APP_ACCOUNTS = {'a': 'one', 'b': 'two'}
+        app.APP_MONITORED_FOLDERS = {'a': ['INBOX'], 'b': ['INBOX']}
+        stop = threading.Event()
+        worker = Mock()
+        worker.is_alive.return_value = False
+        app.ACCOUNT_STOP_EVENTS = {'a': stop}
+        app.ACCOUNT_WORKERS = {'a': worker}
+        service = Mock()
+        with patch('mailflag.settings_service.SettingsService', return_value=service), \
+             patch.object(app, 'interrupt_stale_mailbox'), \
+             patch.object(app.GLib, 'idle_add'):
+            self.assertEqual(app.remove_runtime_account('a'), 'OK')
+        self.assertTrue(stop.is_set())
+        worker.join.assert_called_once_with(timeout=app.MONITOR_CONFIG.socket_timeout + 5)
+        service.remove_account.assert_called_once_with('a')
+        self.assertEqual(app.APP_ACCOUNTS, {'b': 'two'})
+        self.assertEqual(list(app.CONNECTION_STATUS.snapshot()), ['b'])
+
+    @staticmethod
+    def _restore(old):
+        (app.CONNECTION_STATUS, app.APP_ACCOUNTS,
+         app.APP_MONITORED_FOLDERS, app.ACCOUNT_STOP_EVENTS,
+         app.ACCOUNT_WORKERS) = old
 
 
 class NotificationSound(unittest.TestCase):

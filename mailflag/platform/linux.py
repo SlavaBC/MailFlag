@@ -17,6 +17,8 @@ class SecretServiceCredentials(CredentialStore):
             ["secret-tool", "lookup", "service", "mailflag", "account", account],
             capture_output=True, text=True,
         )
+        if result.returncode not in (0, 1) or (result.returncode and result.stderr.strip()):
+            raise RuntimeError(result.stderr.strip() or "Secret Service lookup failed")
         return result.stdout.strip()
 
     def set(self, account, secret):
@@ -27,10 +29,12 @@ class SecretServiceCredentials(CredentialStore):
         )
 
     def delete(self, account):
-        subprocess.run(
+        result = subprocess.run(
             ["secret-tool", "clear", "service", "mailflag", "account", account],
-            check=False,
+            capture_output=True, text=True,
         )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or "Secret Service deletion failed")
 
 
 class DesktopAutostart(AutostartService):

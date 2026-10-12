@@ -262,18 +262,33 @@ class SettingsWindow(Gtk.Window):
     def _remove_account(self, _button, account):
         dialog = Gtk.MessageDialog(
             transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE, text=f"Remove {account}?",
+            buttons=Gtk.ButtonsType.NONE,
+            text=f"Remove account {account} from MailFlag?",
         )
         dialog.format_secondary_text(
-            "The local account, pending state and its keyring credential will be removed. "
-            "Messages on the server will not be changed."
+            "Local settings, pending/checkpoint data and the saved App Password "
+            "for this account will be removed. Messages, folders and filters on "
+            "the mail server will not be changed."
         )
         dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
         dialog.add_button("Remove", Gtk.ResponseType.OK)
         if dialog.run() == Gtk.ResponseType.OK:
-            self.service.remove_account(account)
-            self.refresh_accounts()
-            restart_background()
+            try:
+                socket_path = PLATFORM.paths.config_dir / "control.sock"
+                if socket_path.exists():
+                    response = send_command(
+                        socket_path, f"remove-account {account}",
+                        timeout=25.0, expect_response=True,
+                    )
+                    if response != "OK":
+                        raise RuntimeError(
+                            response or "MailFlag background did not respond"
+                        )
+                else:
+                    self.service.remove_account(account)
+                self.refresh_accounts()
+            except Exception as exc:
+                self._error("Account was not removed", str(exc))
         dialog.destroy()
 
     def _build_folders_page(self):

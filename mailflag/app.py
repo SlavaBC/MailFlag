@@ -9,6 +9,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -90,6 +91,8 @@ CONNECTION_STATUS = None
 tray_indicator = None
 ACTIVE_MAILBOXES = {}
 ACTIVE_MAILBOXES_LOCK = threading.RLock()
+ACCOUNT_STOP_EVENTS = {}
+ACCOUNT_WORKERS = {}
 
 
 def register_active_mailbox(email, mailbox):
@@ -1531,6 +1534,19 @@ class TrayIndicator:
     def _quit(self, _item):
         Gtk.main_quit()
 
+    def _open_settings(self, _item):
+        installed = Path("/usr/bin/mailflag")
+        command = [str(installed), "--settings"] if installed.exists() else [
+            sys.executable, "-m", "mailflag", "--settings"
+        ]
+        try:
+            subprocess.Popen(
+                command, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, start_new_session=True,
+            )
+        except OSError as exc:
+            print(f"Settings launch failed: {exc}")
+
     def _set_sound(self, item, choice):
         if not item.get_active():
             return
@@ -1582,19 +1598,24 @@ class TrayIndicator:
         total = len(snapshot)
         count = pending_count()
 
+        status_title = (
+            "No accounts configured" if total == 0 else self.TITLES[aggregate]
+        )
+        icon_state = "offline" if total == 0 else aggregate
+
         self.indicator.set_icon_full(
-            str(STATUS_ICONS[aggregate]),
-            f"MailFlag: {self.TITLES[aggregate]}",
+            str(STATUS_ICONS[icon_state]),
+            f"MailFlag: {status_title}",
         )
         self.indicator.set_label(str(count) if count else "", "99+")
         self.indicator.set_title(
-            f"MailFlag — {self.TITLES[aggregate]} — {count} pending"
+            f"MailFlag — {status_title} — {count} pending"
         )
 
         menu = Gtk.Menu()
         menu.append(self._disabled_item(f"MailFlag {__version__}"))
         menu.append(self._disabled_item(
-            f"MailFlag: {self.TITLES[aggregate]} ({connected}/{total})"
+            f"MailFlag: {status_title} ({connected}/{total})"
         ))
         menu.append(Gtk.SeparatorMenuItem())
         symbols = {"connected": "✓", "connecting": "↻", "error": "!"}
@@ -1661,6 +1682,9 @@ class TrayIndicator:
         open_item.set_submenu(open_menu)
         menu.append(open_item)
         menu.append(Gtk.SeparatorMenuItem())
+        settings_item = Gtk.MenuItem(label="Settings…")
+        settings_item.connect("activate", self._open_settings)
+        menu.append(settings_item)
         quit_item = Gtk.MenuItem(label="Quit MailFlag")
         quit_item.connect("activate", self._quit)
         menu.append(quit_item)
@@ -1978,6 +2002,8 @@ class PendingReview:
     def _start_loaded(self, items):
         self.loading = False
 
+        items = [item for item in items if item["email"] in APP_ACCOUNTS]
+
         if not items:
             self.active = False
             pending_indicator.refresh()
@@ -1986,6 +2012,14 @@ class PendingReview:
         self.items = deque(items)
         self.active = True
         self._show_next()
+        return False
+
+    def remove_account(self, email):
+        self.items = deque(
+            item for item in self.items if item["email"] != email
+        )
+        if self.active:
+            self._show_next()
         return False
 
     def _cancel_timeout(self):
@@ -2433,12 +2467,79 @@ class _GtkMonitorEvents:
         print(f"[{account}] Reconnecting in {retry_seconds} seconds...")
 
 
-def imap_worker(email, password):
+def imap_worker(email, password, stop_event=None):
     print(f"[{email}] worker started.")
     run_account_monitor(
         email, password, YAHOO, MailBox, PLATFORM, _GtkMonitorEvents(),
         RECONNECT_EVENT, MONITOR_CONFIG, SUSPEND_GAP_SECONDS,
+        stop_event=stop_event,
     )
+
+
+def start_account_worker(email, password):
+    stop_event = threading.Event()
+    worker = threading.Thread(
+        target=imap_worker,
+        args=(email, password, stop_event),
+        daemon=True,
+        name=f"mailflag-{email}",
+    )
+    ACCOUNT_STOP_EVENTS[email] = stop_event
+    ACCOUNT_WORKERS[email] = worker
+    worker.start()
+    return worker
+
+
+def remove_runtime_account(email):
+    snapshot = CONNECTION_STATUS.snapshot() if CONNECTION_STATUS else {}
+    if email not in snapshot:
+        raise KeyError(f"Unknown MailFlag account: {email}")
+
+    password = APP_ACCOUNTS.get(email)
+    stop_event = ACCOUNT_STOP_EVENTS.get(email)
+    worker = ACCOUNT_WORKERS.get(email)
+    if stop_event is not None:
+        stop_event.set()
+    interrupt_stale_mailbox(email)
+    if worker is not None:
+        worker.join(timeout=MONITOR_CONFIG.socket_timeout + 5)
+        if worker.is_alive():
+            raise RuntimeError("The account connection did not stop safely")
+
+    try:
+        from .settings_service import SettingsService
+        SettingsService().remove_account(email)
+    except Exception:
+        if password:
+            start_account_worker(email, password)
+        raise
+
+    APP_ACCOUNTS.pop(email, None)
+    APP_MONITORED_FOLDERS.pop(email, None)
+    ACCOUNT_STOP_EVENTS.pop(email, None)
+    ACCOUNT_WORKERS.pop(email, None)
+    unregister_active_mailbox(email)
+    if CONNECTION_STATUS is not None:
+        CONNECTION_STATUS.remove(email)
+    GLib.idle_add(pending_review.remove_account, email)
+    GLib.idle_add(pending_indicator.refresh)
+    if tray_indicator is not None:
+        GLib.idle_add(tray_indicator.refresh)
+    print(f"[{email}] Account removed locally. Server mail was not changed.")
+    return "OK"
+
+
+def handle_control_command(command):
+    if command == "stop":
+        GLib.idle_add(Gtk.main_quit)
+        return "OK"
+    prefix = "remove-account "
+    if command.startswith(prefix):
+        email = command[len(prefix):].strip()
+        if not email:
+            raise ValueError("Account email is missing")
+        return remove_runtime_account(email)
+    raise ValueError(f"Unknown control command: {command}")
 
 
 def main():
@@ -2507,20 +2608,12 @@ def main():
     print()
 
     for email, password in credentials.items():
-        worker = threading.Thread(
-            target=imap_worker,
-            args=(email, password),
-            daemon=True,
-            name=f"mailflag-{email}",
-        )
-        worker.start()
+        start_account_worker(email, password)
 
     GLib.idle_add(pending_indicator.refresh)
     GLib.idle_add(tray_indicator.refresh)
 
-    control = ControlServer(CONFIG_DIR / "control.sock", lambda command: (
-        GLib.idle_add(Gtk.main_quit) if command == "stop" else None
-    ))
+    control = ControlServer(CONFIG_DIR / "control.sock", handle_control_command)
     control.start()
     try:
         Gtk.main()

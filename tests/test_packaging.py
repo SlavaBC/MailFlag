@@ -12,8 +12,8 @@ ROOT = Path(__file__).parents[1]
 class PackagingTests(unittest.TestCase):
     def test_version_metadata_is_consistent(self):
         control = (ROOT / 'packaging/debian/control').read_text()
-        self.assertEqual(__version__, '0.14.2-beta1')
-        self.assertEqual(DEBIAN_VERSION, '0.14.2~beta1')
+        self.assertEqual(__version__, '0.14.3-beta1')
+        self.assertEqual(DEBIAN_VERSION, '0.14.3~beta1')
         self.assertIn(f'Version: {DEBIAN_VERSION}', control)
         self.assertIn(f'VERSION={DEBIAN_VERSION}',
                       (ROOT / 'build-deb.sh').read_text())
@@ -68,6 +68,16 @@ class PackagingTests(unittest.TestCase):
         self.assertIn('self.set_wmclass("mailflag", "MailFlag")', source)
         self.assertIn('scroll.set_policy(Gtk.PolicyType.NEVER,', source)
         self.assertIn('box.pack_start(scroll, True, True, 0)', source)
+
+    def test_tray_settings_item_uses_installed_command_before_quit(self):
+        source = (ROOT / 'mailflag/app.py').read_text()
+        self.assertIn('Gtk.MenuItem(label="Settings…")', source)
+        self.assertIn('Path("/usr/bin/mailflag")', source)
+        self.assertIn('[str(installed), "--settings"]', source)
+        self.assertLess(
+            source.index('Gtk.MenuItem(label="Settings…")'),
+            source.index('Gtk.MenuItem(label="Quit MailFlag")'),
+        )
 
     def test_beta_acceptance_report_is_packaged(self):
         build = (ROOT / 'build-deb.sh').read_text()

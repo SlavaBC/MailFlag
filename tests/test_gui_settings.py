@@ -12,15 +12,21 @@ from unittest.mock import Mock, patch
 from mailflag.ipc import ControlServer, send_command
 from mailflag.__main__ import should_open_settings
 from mailflag.platform.base import AppPaths
+from mailflag.core.state import read_store, write_store
 from mailflag.settings_service import POPUP_DURATIONS, SettingsService, otp_timeout
 from mailflag import remove_account as remove_module
 
 
 class FakeCredentials:
-    def __init__(self): self.values = {}
+    def __init__(self):
+        self.values = {}
+        self.delete_error = None
     def get(self, account): return self.values.get(account, "")
     def set(self, account, secret): self.values[account] = secret
-    def delete(self, account): self.values.pop(account, None)
+    def delete(self, account):
+        if self.delete_error:
+            raise self.delete_error
+        self.values.pop(account, None)
 
 
 class SettingsModelTests(unittest.TestCase):
@@ -72,10 +78,55 @@ class SettingsModelTests(unittest.TestCase):
     def test_remove_one_account_keeps_other_and_deletes_only_its_secret(self):
         self.service.add_yahoo_account("a@yahoo.com", "one")
         self.service.add_yahoo_account("b@yahoo.com", "two")
+        write_store(self.platform.paths.state_file, {
+            "accounts": {
+                "a@yahoo.com": {"folders": {"INBOX": {
+                    "uidvalidity": 1, "last_processed_uid": 4,
+                    "pending_uids": [4], "message_refs": {},
+                }}},
+                "b@yahoo.com": {"folders": {"INBOX": {
+                    "uidvalidity": 2, "last_processed_uid": 8,
+                    "pending_uids": [8], "message_refs": {},
+                }}},
+            },
+        })
         self.service.remove_account("a@yahoo.com")
         self.assertEqual(self.service.accounts(), ["b@yahoo.com"])
         self.assertNotIn("a@yahoo.com", self.platform.credentials.values)
         self.assertEqual(self.platform.credentials.get("b@yahoo.com"), "two")
+        state = read_store(self.platform.paths.state_file)
+        self.assertNotIn("a@yahoo.com", state["accounts"])
+        self.assertEqual(
+            state["accounts"]["b@yahoo.com"]["folders"]["INBOX"]["pending_uids"],
+            [8],
+        )
+
+    def test_keyring_delete_failure_changes_nothing(self):
+        self.service.add_yahoo_account("a@yahoo.com", "one")
+        write_store(self.platform.paths.state_file, {
+            "accounts": {"a@yahoo.com": {"folders": {"INBOX": {
+                "uidvalidity": 1, "last_processed_uid": 4,
+                "pending_uids": [4], "message_refs": {},
+            }}}},
+        })
+        before_config = self.platform.paths.config_file.read_text()
+        before_state = self.platform.paths.state_file.read_text()
+        self.platform.credentials.delete_error = RuntimeError("keyring unavailable")
+        with self.assertRaisesRegex(RuntimeError, "keyring unavailable"):
+            self.service.remove_account("a@yahoo.com")
+        self.assertEqual(self.platform.paths.config_file.read_text(), before_config)
+        self.assertEqual(self.platform.paths.state_file.read_text(), before_state)
+        self.assertEqual(self.platform.credentials.get("a@yahoo.com"), "one")
+
+    def test_removed_account_can_be_added_again_as_new(self):
+        self.service.add_yahoo_account("a@yahoo.com", "one")
+        self.service.remove_account("a@yahoo.com")
+        self.assertEqual(self.service.accounts(), [])
+        self.service.add_yahoo_account("a@yahoo.com", "new-secret")
+        self.assertEqual(self.service.accounts(), ["a@yahoo.com"])
+        self.assertEqual(
+            self.platform.credentials.get("a@yahoo.com"), "new-secret"
+        )
 
     def test_edit_account_retests_and_replaces_only_credential(self):
         self.service.add_yahoo_account("a@yahoo.com", "one")

@@ -2,6 +2,16 @@
 
 All notable changes to MailFlag will be documented in this file.
 
+## 0.14.3-beta1
+
+- Added a Settings item to the tray menu immediately before Quit MailFlag.
+- Made account removal stop only the selected account worker while other
+  accounts continue monitoring.
+- Made Remove clear the selected account's keyring credential, configuration,
+  monitored folders, checkpoints and pending state with error reporting and
+  rollback protection.
+- Added a safe no-accounts state and regression coverage for removal failures.
+
 ## 0.14.2-beta1
 
 - Added Yahoo Mail monitoring over IMAP with multi-account support.

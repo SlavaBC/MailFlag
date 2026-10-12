@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-VERSION=0.14.2~beta1
+VERSION=0.14.3~beta1
 PACKAGE=mailflag_${VERSION}_amd64.deb
 BUILD=$(mktemp -d "${TMPDIR:-/tmp}/mailflag-deb.XXXXXX")
 cleanup() { rm -rf "$BUILD"; }

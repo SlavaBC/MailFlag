@@ -4,7 +4,7 @@ SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 DEST="$HOME/.local/share/mailflag"
 # Stage first; an unsuccessful dependency install leaves the current version intact.
 mkdir -p "$DEST/releases" "$HOME/.local/bin" "$HOME/.local/share/applications" "$HOME/.config/autostart"
-STAGE=$(mktemp -d "$DEST/releases/0.14.2-beta1.XXXXXX")
+STAGE=$(mktemp -d "$DEST/releases/0.14.3-beta1.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT HUP INT TERM
 cp -R "$SOURCE/mailflag" "$STAGE/"
 cp -R "$SOURCE/vendor" "$STAGE/"
@@ -44,4 +44,4 @@ if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$HOME/.local/share/applications"
 fi
 rm -f "$HOME/.config/mailflag/diagnostics.jsonl" "$HOME/.config/mailflag/diagnostics.jsonl.1"
-printf '%s\n' 'MailFlag 0.14.2-beta1 installed. Stop the running older version, then launch MailFlag from the menu.'
+printf '%s\n' 'MailFlag 0.14.3-beta1 installed. Stop the running older version, then launch MailFlag from the menu.'

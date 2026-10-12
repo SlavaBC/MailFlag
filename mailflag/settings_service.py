@@ -103,6 +103,9 @@ class SettingsService:
         self.platform.credentials.set(account, password)
 
     def remove_account(self, account):
+        original_config = self.read_config()
+        if account not in configured_emails(original_config):
+            raise KeyError(account)
         config = self.read_config()
         accounts = [item for item in configured_emails(config) if item != account]
         if config.has_section("accounts"):
@@ -110,11 +113,39 @@ class SettingsService:
         if config.has_section("account"):
             config.set("account", "email", accounts[0] if accounts else "")
         config.remove_section(f"account:{account}")
-        self.write_config(config)
-        self.platform.credentials.delete(account)
+        original_state = read_store(self.platform.paths.state_file)
         state = read_store(self.platform.paths.state_file)
         state["accounts"].pop(account, None)
-        write_store(self.platform.paths.state_file, state)
+        credential = self.platform.credentials.get(account)
+        credential_deleted = False
+        config_written = False
+        try:
+            if credential:
+                self.platform.credentials.delete(account)
+                credential_deleted = True
+            self.write_config(config)
+            config_written = True
+            write_store(self.platform.paths.state_file, state)
+        except Exception as exc:
+            rollback_errors = []
+            if config_written:
+                try:
+                    self.write_config(original_config)
+                except Exception as rollback_exc:
+                    rollback_errors.append(f"config rollback: {rollback_exc}")
+                try:
+                    write_store(self.platform.paths.state_file, original_state)
+                except Exception as rollback_exc:
+                    rollback_errors.append(f"state rollback: {rollback_exc}")
+            if credential_deleted:
+                try:
+                    self.platform.credentials.set(account, credential)
+                except Exception as rollback_exc:
+                    rollback_errors.append(f"credential rollback: {rollback_exc}")
+            detail = f"Account removal failed: {exc}"
+            if rollback_errors:
+                detail += "; " + "; ".join(rollback_errors)
+            raise RuntimeError(detail) from exc
 
     def notification_preferences(self):
         config = self.read_config()

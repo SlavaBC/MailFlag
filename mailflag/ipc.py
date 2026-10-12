@@ -5,12 +5,16 @@ import threading
 import os
 
 
-def send_command(path, command, timeout=1.0):
+def send_command(path, command, timeout=1.0, expect_response=False):
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             client.settimeout(timeout)
             client.connect(str(path))
             client.sendall((command.strip() + "\n").encode("utf-8"))
+            if expect_response:
+                client.shutdown(socket.SHUT_WR)
+                response = client.recv(4096).decode("utf-8", "replace").strip()
+                return response or None
         return True
     except OSError:
         return False
@@ -40,12 +44,25 @@ class ControlServer:
         while self.socket is not None:
             try:
                 connection, _ = self.socket.accept()
-                with connection:
-                    command = connection.recv(256).decode("utf-8", "replace").strip()
-                if command:
-                    self.callback(command)
             except OSError:
                 break
+            try:
+                with connection:
+                    command = connection.recv(256).decode("utf-8", "replace").strip()
+                    if command:
+                        try:
+                            response = self.callback(command)
+                        except Exception as exc:
+                            response = f"ERROR: {type(exc).__name__}: {exc}"
+                        if response is not None:
+                            try:
+                                connection.sendall(
+                                    (str(response) + "\n").encode("utf-8")
+                                )
+                            except OSError:
+                                pass
+            except OSError:
+                continue
 
     def close(self):
         current, self.socket = self.socket, None

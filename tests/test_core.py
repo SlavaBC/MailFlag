@@ -3,6 +3,7 @@
 import unittest
 import configparser
 import tempfile
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -58,6 +59,18 @@ class PortableCore(unittest.TestCase):
             [reconnect_delay(config, index) for index in range(8)],
             [3, 5, 10, 20, 40, 60, 60, 60],
         )
+
+    def test_monitor_does_not_connect_when_account_is_stopped(self):
+        stop = threading.Event()
+        stop.set()
+        factory = Mock()
+        events = Mock()
+        run_account_monitor(
+            'a@test', 'secret', YAHOO, factory, Mock(), events,
+            threading.Event(), MonitorConfig(), stop_event=stop,
+        )
+        factory.assert_not_called()
+        events.connection_changed.assert_not_called()
 
     def test_folder_refresh_prefers_fresh_select_response_codes(self):
         box = Mock()

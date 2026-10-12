@@ -86,12 +86,14 @@ def _mailbox_session(mailbox):
 
 def run_account_monitor(account, password, provider, mailbox_factory, platform,
                         events, reconnect_event, config=MonitorConfig(),
-                        suspend_gap_seconds=5.0):
+                        suspend_gap_seconds=5.0, stop_event=None):
     """Run provider-neutral IMAP/IDLE and reconnect classification forever.
 
     UI/state effects are callbacks, so this loop can be reused by another UI
     and OS platform without importing GTK or Linux APIs.
     """
+    if stop_event is not None and stop_event.is_set():
+        return
     events.connection_changed(account, "connecting", "Connecting")
     first_connection = True
     reconnect_started_wall = None
@@ -136,7 +138,7 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
         refresh_folder_status(mailbox, provider.inbox)
         return total
 
-    while True:
+    while stop_event is None or not stop_event.is_set():
         operation_clock = platform.power_clock_snapshot()
         mailbox = None
         try:
@@ -145,6 +147,9 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
             ).login(account, password, initial_folder=None)
             with _mailbox_session(mailbox):
                 events.register_mailbox(account, mailbox)
+                if stop_event is not None and stop_event.is_set():
+                    events.unregister_mailbox(account, mailbox)
+                    return
                 status = refresh_folder_status(mailbox, provider.inbox)
                 uidvalidity = int(status["UIDVALIDITY"])
                 uidnext = int(status["UIDNEXT"])
@@ -183,8 +188,14 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                 last_extra_poll = time.monotonic()
 
                 while True:
+                    if stop_event is not None and stop_event.is_set():
+                        events.unregister_mailbox(account, mailbox)
+                        return
                     idle_clock = platform.power_clock_snapshot()
                     responses = mailbox.idle.wait(timeout=config.idle_timeout)
+                    if stop_event is not None and stop_event.is_set():
+                        events.unregister_mailbox(account, mailbox)
+                        return
                     gap = platform.suspend_gap_since(idle_clock)
                     status = refresh_folder_status(mailbox, provider.inbox)
                     new_validity = int(status["UIDVALIDITY"])
@@ -218,6 +229,8 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
                         events.heartbeat(account)
         except Exception as exc:
             events.unregister_mailbox(account, mailbox)
+            if stop_event is not None and stop_event.is_set():
+                return
             try:
                 if platform.suspend_gap_since(operation_clock) > suspend_gap_seconds:
                     reconnect_was_suspend = True
@@ -233,8 +246,15 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
             consecutive_failures += 1
             events.interrupted(account, exc, delay)
             retry_clock = platform.power_clock_snapshot()
-            reconnect_event.wait(delay)
+            deadline = time.monotonic() + delay
+            while time.monotonic() < deadline:
+                if stop_event is not None and stop_event.wait(0.1):
+                    return
+                if reconnect_event.is_set():
+                    break
             reconnect_event.clear()
+            if stop_event is not None and stop_event.is_set():
+                return
             events.connection_changed(account, "connecting", "Reconnecting")
             try:
                 if platform.suspend_gap_since(retry_clock) > suspend_gap_seconds:

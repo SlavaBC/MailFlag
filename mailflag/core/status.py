@@ -49,6 +49,13 @@ class ConnectionStatus:
         with self._lock:
             return {email: dict(value) for email, value in self._accounts.items()}
 
+    def remove(self, email):
+        with self._lock:
+            removed = self._accounts.pop(email, None) is not None
+        if removed and self._changed:
+            self._changed()
+        return removed
+
     def aggregate(self):
         values = list(self.snapshot().values())
         connected = sum(item["state"] == "connected" for item in values)
