@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.5-beta1
+
+- After a fresh Debian installation, schedule Settings to open in each active
+  graphical user session so installation has an immediate visible result.
+- Do not open Settings automatically during package upgrades.
+- If no supported desktop session is active, installation still succeeds and
+  the normal application launcher and next-login autostart remain available.
+
 ## 0.14.4-beta1
 
 - Stop background monitoring and Settings cleanly during Debian package removal.

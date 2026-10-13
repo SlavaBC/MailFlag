@@ -6,4 +6,10 @@ fi
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
 fi
+# dpkg passes the previously installed version as $2 during an upgrade.
+# Open Settings only after a fresh installation, never during an update.
+if [ "${1:-}" = "configure" ] && [ -z "${2:-}" ] && \
+   [ -x /usr/lib/mailflag/launch-first-run ]; then
+    /usr/lib/mailflag/launch-first-run || true
+fi
 exit 0

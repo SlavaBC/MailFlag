@@ -1,0 +1,83 @@
+#!/bin/sh
+# Ask active graphical user sessions to open MailFlag Settings after a fresh install.
+# Failure is harmless: the desktop launcher and autostart remain available.
+set -u
+
+command -v runuser >/dev/null 2>&1 || exit 0
+
+seen_uids=" "
+
+launch_for_uid() {
+    uid=$1
+    leader=${2:-}
+    case "$uid" in ''|*[!0-9]*) return ;; esac
+    case "$seen_uids" in *" $uid "*) return ;; esac
+    seen_uids="$seen_uids$uid "
+
+    account=$(getent passwd "$uid" 2>/dev/null) || return
+    user=$(printf '%s\n' "$account" | cut -d: -f1)
+    home=$(printf '%s\n' "$account" | cut -d: -f6)
+    runtime="/run/user/$uid"
+    [ -n "$user" ] && [ -n "$home" ] && [ -S "$runtime/bus" ] || return
+
+    if [ -z "$leader" ] || [ ! -r "/proc/$leader/environ" ]; then
+        leader=""
+        for environment in /proc/[0-9]*/environ; do
+            [ -r "$environment" ] || continue
+            [ "$(stat -c %u "$environment" 2>/dev/null)" = "$uid" ] || continue
+            if tr '\0' '\n' < "$environment" 2>/dev/null | \
+               grep -Eq '^(DISPLAY|WAYLAND_DISPLAY)='; then
+                leader=${environment#/proc/}
+                leader=${leader%/environ}
+                break
+            fi
+        done
+    fi
+    [ -n "$leader" ] && [ -r "/proc/$leader/environ" ] || return
+
+    display=$(tr '\0' '\n' < "/proc/$leader/environ" 2>/dev/null | \
+        sed -n 's/^DISPLAY=//p' | head -n 1)
+    wayland=$(tr '\0' '\n' < "/proc/$leader/environ" 2>/dev/null | \
+        sed -n 's/^WAYLAND_DISPLAY=//p' | head -n 1)
+    xauthority=$(tr '\0' '\n' < "/proc/$leader/environ" 2>/dev/null | \
+        sed -n 's/^XAUTHORITY=//p' | head -n 1)
+    [ -n "$display" ] || [ -n "$wayland" ] || return
+
+    runuser -u "$user" -- env \
+        HOME="$home" \
+        XDG_RUNTIME_DIR="$runtime" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" \
+        DISPLAY="$display" \
+        WAYLAND_DISPLAY="$wayland" \
+        XAUTHORITY="$xauthority" \
+        nohup /usr/bin/mailflag --settings >/dev/null 2>&1 &
+}
+
+sessions=""
+if command -v loginctl >/dev/null 2>&1; then
+    sessions=$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}')
+fi
+for session in $sessions; do
+    [ -n "$session" ] || continue
+    active=$(loginctl show-session "$session" -p Active --value 2>/dev/null) || continue
+    class=$(loginctl show-session "$session" -p Class --value 2>/dev/null) || continue
+    type=$(loginctl show-session "$session" -p Type --value 2>/dev/null) || continue
+    uid=$(loginctl show-session "$session" -p User --value 2>/dev/null) || continue
+    leader=$(loginctl show-session "$session" -p Leader --value 2>/dev/null) || continue
+
+    [ "$active" = "yes" ] || continue
+    [ "$class" = "user" ] || continue
+    case "$type" in x11|wayland) ;; *) continue ;; esac
+    launch_for_uid "$uid" "$leader"
+done
+
+# PackageKit/apt daemons do not always expose logind sessions to maintainer
+# scripts. A live per-user D-Bus socket is a safe secondary discovery source;
+# systemd-run will still fail harmlessly if that user has no graphical display.
+for bus in /run/user/[0-9]*/bus; do
+    [ -S "$bus" ] || continue
+    uid=$(stat -c %u "$bus" 2>/dev/null) || continue
+    launch_for_uid "$uid"
+done
+
+exit 0

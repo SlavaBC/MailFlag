@@ -12,8 +12,8 @@ ROOT = Path(__file__).parents[1]
 class PackagingTests(unittest.TestCase):
     def test_version_metadata_is_consistent(self):
         control = (ROOT / 'packaging/debian/control').read_text()
-        self.assertEqual(__version__, '0.14.4-beta1')
-        self.assertEqual(DEBIAN_VERSION, '0.14.4~beta1')
+        self.assertEqual(__version__, '0.14.5-beta1')
+        self.assertEqual(DEBIAN_VERSION, '0.14.5~beta1')
         self.assertIn(f'Version: {DEBIAN_VERSION}', control)
         self.assertIn(f'VERSION={DEBIAN_VERSION}',
                       (ROOT / 'build-deb.sh').read_text())
@@ -57,6 +57,28 @@ class PackagingTests(unittest.TestCase):
         build = (ROOT / 'build-deb.sh').read_text()
         self.assertIn('OUTPUT_DIR=$(CDPATH= cd -- "$SOURCE/.."', build)
         self.assertIn('"$OUTPUT_DIR/$PACKAGE"', build)
+
+    def test_fresh_install_schedules_settings_in_desktop_user_session(self):
+        postinst = (ROOT / 'packaging/debian/postinst').read_text()
+        launcher = (ROOT / 'packaging/mailflag-launch-first-run').read_text()
+        build = (ROOT / 'build-deb.sh').read_text()
+        self.assertIn('[ "${1:-}" = "configure" ]', postinst)
+        self.assertIn('[ -z "${2:-}" ]', postinst)
+        self.assertIn('/usr/lib/mailflag/launch-first-run', postinst)
+        self.assertIn('loginctl list-sessions', launcher)
+        self.assertIn('[ "$active" = "yes" ]', launcher)
+        self.assertIn('x11|wayland', launcher)
+        self.assertIn('runuser -u "$user"', launcher)
+        self.assertIn('DISPLAY="$display"', launcher)
+        self.assertIn('WAYLAND_DISPLAY="$wayland"', launcher)
+        self.assertIn('nohup /usr/bin/mailflag --settings', launcher)
+        self.assertIn('/usr/bin/mailflag --settings', launcher)
+        self.assertIn('mailflag-launch-first-run', build)
+
+    def test_upgrade_does_not_launch_settings(self):
+        postinst = (ROOT / 'packaging/debian/postinst').read_text()
+        self.assertIn('# Open Settings only after a fresh installation', postinst)
+        self.assertIn('[ -z "${2:-}" ]', postinst)
 
     def test_compatible_imap_tools_is_vendored(self):
         init = (ROOT / 'vendor/imap_tools/__init__.py').read_text()

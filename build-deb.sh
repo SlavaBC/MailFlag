@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-VERSION=0.14.4~beta1
+VERSION=0.14.5~beta1
 PACKAGE=mailflag_${VERSION}_amd64.deb
 OUTPUT_DIR=$(CDPATH= cd -- "$SOURCE/.." && pwd)
 BUILD=$(mktemp -d "${TMPDIR:-/tmp}/mailflag-deb.XXXXXX")
@@ -9,7 +9,8 @@ cleanup() { rm -rf "$BUILD"; }
 trap cleanup EXIT HUP INT TERM
 mkdir -p "$BUILD/DEBIAN" "$BUILD/opt/mailflag" "$BUILD/usr/bin" \
   "$BUILD/usr/share/applications" "$BUILD/etc/xdg/autostart" \
-  "$BUILD/usr/share/doc/mailflag" "$BUILD/usr/share/man/man1"
+  "$BUILD/usr/share/doc/mailflag" "$BUILD/usr/share/man/man1" \
+  "$BUILD/usr/lib/mailflag"
 cp "$SOURCE/packaging/debian/control" "$BUILD/DEBIAN/control"
 cp "$SOURCE/packaging/debian/postinst" "$BUILD/DEBIAN/postinst"
 cp "$SOURCE/packaging/debian/prerm" "$BUILD/DEBIAN/prerm"
@@ -34,6 +35,8 @@ chmod 755 "$BUILD/usr/bin/mailflag"
 cp "$SOURCE/packaging/mailflag.desktop" "$BUILD/usr/share/applications/mailflag.desktop"
 cp "$SOURCE/packaging/mailflag-autostart.desktop" "$BUILD/etc/xdg/autostart/mailflag.desktop"
 cp "$SOURCE/packaging/mailflag-migrate-local" "$BUILD/usr/bin/mailflag-migrate-local"
+cp "$SOURCE/packaging/mailflag-launch-first-run" \
+  "$BUILD/usr/lib/mailflag/launch-first-run"
 gzip -9 -c "$SOURCE/packaging/mailflag.1" > "$BUILD/usr/share/man/man1/mailflag.1.gz"
 for size in 48 64 128 256; do
   mkdir -p "$BUILD/usr/share/icons/hicolor/${size}x${size}/apps"
@@ -50,6 +53,7 @@ chmod -R u=rwX,go=rX "$BUILD"
 chmod 755 "$BUILD/DEBIAN/postinst" "$BUILD/DEBIAN/prerm" \
   "$BUILD/DEBIAN/postrm" \
   "$BUILD/opt/mailflag/run" "$BUILD/usr/bin/mailflag" \
-  "$BUILD/usr/bin/mailflag-migrate-local"
+  "$BUILD/usr/bin/mailflag-migrate-local" \
+  "$BUILD/usr/lib/mailflag/launch-first-run"
 dpkg-deb --build --root-owner-group "$BUILD" "$OUTPUT_DIR/$PACKAGE"
 printf '%s\n' "$OUTPUT_DIR/$PACKAGE"
