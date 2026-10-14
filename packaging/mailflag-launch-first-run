@@ -41,6 +41,17 @@ launch_for_uid() {
         sed -n 's/^WAYLAND_DISPLAY=//p' | head -n 1)
     xauthority=$(tr '\0' '\n' < "/proc/$leader/environ" 2>/dev/null | \
         sed -n 's/^XAUTHORITY=//p' | head -n 1)
+    if [ -z "$display" ]; then
+        for socket in /tmp/.X11-unix/X[0-9]*; do
+            [ -S "$socket" ] || continue
+            display=":${socket##*/X}"
+            break
+        done
+    fi
+    if [ -n "$display" ] && [ -z "$xauthority" ] && \
+       [ -r "$home/.Xauthority" ]; then
+        xauthority="$home/.Xauthority"
+    fi
     [ -n "$display" ] || [ -n "$wayland" ] || return
 
     runuser -u "$user" -- env \
@@ -73,7 +84,7 @@ done
 
 # PackageKit/apt daemons do not always expose logind sessions to maintainer
 # scripts. A live per-user D-Bus socket is a safe secondary discovery source;
-# systemd-run will still fail harmlessly if that user has no graphical display.
+# launch_for_uid still requires an X11 or Wayland display before starting.
 for bus in /run/user/[0-9]*/bus; do
     [ -S "$bus" ] || continue
     uid=$(stat -c %u "$bus" 2>/dev/null) || continue

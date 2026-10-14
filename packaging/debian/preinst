@@ -1,0 +1,14 @@
+#!/bin/sh
+# Remember whether MailFlag was absent before this package was unpacked.
+set -u
+
+marker=/run/mailflag-first-install.pending
+# dpkg uses `install` for a new installation and for reinstalling a package
+# left in config-files state; a real in-place update uses `upgrade`.
+if [ "${1:-}" = "install" ]; then
+    : > "$marker" 2>/dev/null || true
+else
+    rm -f "$marker" 2>/dev/null || true
+fi
+
+exit 0

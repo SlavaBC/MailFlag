@@ -12,8 +12,8 @@ ROOT = Path(__file__).parents[1]
 class PackagingTests(unittest.TestCase):
     def test_version_metadata_is_consistent(self):
         control = (ROOT / 'packaging/debian/control').read_text()
-        self.assertEqual(__version__, '0.14.5-beta1')
-        self.assertEqual(DEBIAN_VERSION, '0.14.5~beta1')
+        self.assertEqual(__version__, '0.14.6-beta1')
+        self.assertEqual(DEBIAN_VERSION, '0.14.6~beta1')
         self.assertIn(f'Version: {DEBIAN_VERSION}', control)
         self.assertIn(f'VERSION={DEBIAN_VERSION}',
                       (ROOT / 'build-deb.sh').read_text())
@@ -22,8 +22,12 @@ class PackagingTests(unittest.TestCase):
         launcher = (ROOT / 'packaging/mailflag.desktop').read_text()
         autostart = (ROOT / 'packaging/mailflag-autostart.desktop').read_text()
         for text in (launcher, autostart):
-            self.assertIn('Icon=mailflag', text)
             self.assertIn('Terminal=false', text)
+        self.assertIn(
+            'Icon=/usr/share/icons/hicolor/128x128/apps/mailflag.png',
+            launcher,
+        )
+        self.assertIn('Icon=mailflag', autostart)
         self.assertIn('Exec=/usr/bin/mailflag --settings', launcher)
         self.assertIn('StartupWMClass=mailflag', launcher)
         self.assertIn('Exec=/usr/bin/mailflag --startup', autostart)
@@ -59,11 +63,14 @@ class PackagingTests(unittest.TestCase):
         self.assertIn('"$OUTPUT_DIR/$PACKAGE"', build)
 
     def test_fresh_install_schedules_settings_in_desktop_user_session(self):
+        preinst = (ROOT / 'packaging/debian/preinst').read_text()
         postinst = (ROOT / 'packaging/debian/postinst').read_text()
         launcher = (ROOT / 'packaging/mailflag-launch-first-run').read_text()
         build = (ROOT / 'build-deb.sh').read_text()
+        self.assertIn('[ "${1:-}" = "install" ]', preinst)
+        self.assertIn('/run/mailflag-first-install.pending', preinst)
         self.assertIn('[ "${1:-}" = "configure" ]', postinst)
-        self.assertIn('[ -z "${2:-}" ]', postinst)
+        self.assertIn('[ -f "$marker" ]', postinst)
         self.assertIn('/usr/lib/mailflag/launch-first-run', postinst)
         self.assertIn('loginctl list-sessions', launcher)
         self.assertIn('[ "$active" = "yes" ]', launcher)
@@ -76,9 +83,14 @@ class PackagingTests(unittest.TestCase):
         self.assertIn('mailflag-launch-first-run', build)
 
     def test_upgrade_does_not_launch_settings(self):
-        postinst = (ROOT / 'packaging/debian/postinst').read_text()
-        self.assertIn('# Open Settings only after a fresh installation', postinst)
-        self.assertIn('[ -z "${2:-}" ]', postinst)
+        preinst = (ROOT / 'packaging/debian/preinst').read_text()
+        self.assertIn('[ "${1:-}" = "install" ]', preinst)
+        self.assertNotIn('= "upgrade"', preinst)
+
+    def test_preinst_is_packaged_as_executable_maintainer_script(self):
+        build = (ROOT / 'build-deb.sh').read_text()
+        self.assertIn('packaging/debian/preinst', build)
+        self.assertIn('$BUILD/DEBIAN/preinst', build)
 
     def test_compatible_imap_tools_is_vendored(self):
         init = (ROOT / 'vendor/imap_tools/__init__.py').read_text()

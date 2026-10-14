@@ -6,10 +6,13 @@ fi
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
 fi
-# dpkg passes the previously installed version as $2 during an upgrade.
-# Open Settings only after a fresh installation, never during an update.
-if [ "${1:-}" = "configure" ] && [ -z "${2:-}" ] && \
+# preinst records a truly absent/removed package before dpkg changes its state.
+# This also handles reinstalling after `apt remove`, where dpkg still supplies
+# an old version to postinst because preserved package metadata remains.
+marker=/run/mailflag-first-install.pending
+if [ "${1:-}" = "configure" ] && [ -f "$marker" ] && \
    [ -x /usr/lib/mailflag/launch-first-run ]; then
     /usr/lib/mailflag/launch-first-run || true
 fi
+rm -f "$marker" 2>/dev/null || true
 exit 0

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.6-beta1
+
+- Correctly detect a fresh installation after `apt remove`, even when dpkg
+  retains the previous package version in `config-files` state.
+- Add an X11 display fallback for opening Settings from graphical installers.
+- Give the Cinnamon application launcher an explicit installed icon path so it
+  no longer falls back to a generic settings icon.
+
 ## 0.14.5-beta1
 
 - After a fresh Debian installation, schedule Settings to open in each active
