@@ -18,6 +18,14 @@ from .version import __version__
 
 
 PLATFORM = get_platform()
+SETTINGS_WINDOW = None
+
+ABOUT_LINKS = (
+    "Website",
+    "GitHub",
+    "Privacy Policy",
+    "GPLv3 License",
+)
 
 
 def install_window_icon():
@@ -148,7 +156,7 @@ class FolderSelectionDialog(Gtk.Dialog):
 
 
 class SettingsWindow(Gtk.Window):
-    def __init__(self, service=None):
+    def __init__(self, service=None, initial_page=None):
         super().__init__(title="MailFlag Settings")
         self.set_wmclass("mailflag", "MailFlag")
         self.service = service or SettingsService()
@@ -172,8 +180,19 @@ class SettingsWindow(Gtk.Window):
         self._build_about_page()
         self.refresh_accounts()
         self.show_all()
-        if not self.service.accounts():
+        if initial_page:
+            self.show_page(initial_page)
+        if not self.service.accounts() and initial_page != 'about':
             GLib.idle_add(self._first_run)
+
+    def show_page(self, page):
+        indexes = {'about': getattr(self, 'about_page_index', None)}
+        index = indexes.get(page)
+        if index is None:
+            return False
+        self.notebook.set_current_page(index)
+        self.present()
+        return True
 
     def _hide_on_close(self, *_args):
         Gtk.main_quit()
@@ -406,7 +425,20 @@ class SettingsWindow(Gtk.Window):
         title = Gtk.Label(); title.set_markup(f"<span size='xx-large' weight='bold'>MailFlag</span>\nVersion {__version__}")
         page.pack_start(title, False, False, 20)
         page.pack_start(Gtk.Label(label="Lightweight mail notifier with instant verification-code handling."), False, False, 0)
-        self.notebook.append_page(page, Gtk.Label(label="About"))
+        links = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        links.set_halign(Gtk.Align.CENTER)
+        for label in ABOUT_LINKS:
+            link = Gtk.LinkButton.new_with_label("about:blank", label)
+            link.set_tooltip_text("Link will be available after publication.")
+            link.connect("activate-link", self._placeholder_about_link)
+            links.pack_start(link, False, False, 0)
+        page.pack_start(links, False, False, 8)
+        self.about_page_index = self.notebook.append_page(
+            page, Gtk.Label(label="About")
+        )
+
+    def _placeholder_about_link(self, _link):
+        return True
 
     def _error(self, title, detail):
         dialog = Gtk.MessageDialog(transient_for=self, modal=True,
@@ -415,16 +447,25 @@ class SettingsWindow(Gtk.Window):
         dialog.format_secondary_text(detail); dialog.run(); dialog.destroy()
 
 
-def run_settings():
+def show_settings_page(page):
+    return bool(SETTINGS_WINDOW and SETTINGS_WINDOW.show_page(page))
+
+
+def run_settings(initial_page=None):
+    global SETTINGS_WINDOW
     install_window_icon()
-    window = SettingsWindow()
+    window = SettingsWindow(initial_page=initial_page)
+    SETTINGS_WINDOW = window
     if window.service.accounts() and not (
         PLATFORM.paths.config_dir / "control.sock"
     ).exists():
         start_background()
     window.connect("destroy", Gtk.main_quit)
-    Gtk.main()
+    try:
+        Gtk.main()
+    finally:
+        SETTINGS_WINDOW = None
 
 
-__all__ = ["SettingsWindow", "run_settings", "restart_background",
+__all__ = ["SettingsWindow", "run_settings", "show_settings_page", "restart_background",
            "start_background", "install_window_icon"]

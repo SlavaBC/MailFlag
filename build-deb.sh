@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-VERSION=0.14.6~beta1
+VERSION=0.14.7~beta1
 PACKAGE=mailflag_${VERSION}_amd64.deb
 OUTPUT_DIR=$(CDPATH= cd -- "$SOURCE/.." && pwd)
 BUILD=$(mktemp -d "${TMPDIR:-/tmp}/mailflag-deb.XXXXXX")

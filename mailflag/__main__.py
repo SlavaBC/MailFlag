@@ -9,6 +9,7 @@ from .version import __version__
 HELP = """Usage: mailflag [OPTION]
 
   --settings                    open the graphical settings window
+  --about                       open Settings directly on the About tab
   --background                  run mail monitoring without opening Settings
   --startup                     first-run-aware desktop-session startup
   --shutdown                    stop running MailFlag processes
@@ -25,14 +26,19 @@ def should_open_settings(arguments, accounts):
     """Return the UI route without importing GTK or starting a worker."""
     if '--startup' in arguments:
         return not accounts
-    return '--settings' in arguments or '--background' not in arguments
+    return ('--settings' in arguments or '--about' in arguments or
+            '--background' not in arguments)
 
 
 def _handle_settings_control(command):
     """Schedule a clean GTK exit without touching background monitoring."""
-    if command != 'stop':
-        raise ValueError(f"Unknown settings control command: {command}")
     from gi.repository import GLib, Gtk
+    if command != 'stop':
+        if command == 'show-about':
+            from .settings_gui import show_settings_page
+            GLib.idle_add(show_settings_page, 'about')
+            return "OK"
+        raise ValueError(f"Unknown settings control command: {command}")
     GLib.idle_add(Gtk.main_quit)
     return "OK"
 
@@ -78,7 +84,7 @@ def main():
         app.regular_popup.window.connect("destroy", lambda *_: app.Gtk.main_quit())
         app.Gtk.main()
         return
-    allowed_runtime = {'--settings', '--background', '--startup'}
+    allowed_runtime = {'--settings', '--about', '--background', '--startup'}
     unknown = [arg for arg in sys.argv[1:] if arg not in allowed_runtime]
     if unknown:
         print(f"Unknown option: {unknown[0]}\n\n{HELP}", file=sys.stderr)
@@ -96,6 +102,8 @@ def main():
         directory.mkdir(parents=True, exist_ok=True)
         settings_lock = acquire_instance_lock(directory / 'settings.lock')
         if settings_lock is None:
+            if '--about' in sys.argv:
+                send_command(directory / 'settings-control.sock', 'show-about')
             print('MailFlag Settings is already open.')
             return
         with settings_lock:
@@ -105,7 +113,7 @@ def main():
             )
             control.start()
             try:
-                run_settings()
+                run_settings('about' if '--about' in sys.argv else None)
             finally:
                 control.close()
         return

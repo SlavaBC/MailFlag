@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.7-beta1
+
+- Add **About MailFlag** to the tray menu between Settings and Quit.
+- Open Settings directly on the About tab, including when Settings is already
+  open.
+- Add placeholder Website, GitHub, Privacy Policy and GPLv3 License links to
+  the About tab; publication URLs will be connected later.
+
 ## 0.14.6-beta1
 
 - Correctly detect a fresh installation after `apt remove`, even when dpkg

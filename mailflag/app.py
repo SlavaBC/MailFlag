@@ -1535,9 +1535,15 @@ class TrayIndicator:
         Gtk.main_quit()
 
     def _open_settings(self, _item):
+        self._launch_settings_mode("--settings")
+
+    def _open_about(self, _item):
+        self._launch_settings_mode("--about")
+
+    def _launch_settings_mode(self, mode):
         installed = Path("/usr/bin/mailflag")
-        command = [str(installed), "--settings"] if installed.exists() else [
-            sys.executable, "-m", "mailflag", "--settings"
+        command = [str(installed), mode] if installed.exists() else [
+            sys.executable, "-m", "mailflag", mode
         ]
         try:
             subprocess.Popen(
@@ -1685,6 +1691,9 @@ class TrayIndicator:
         settings_item = Gtk.MenuItem(label="Settings…")
         settings_item.connect("activate", self._open_settings)
         menu.append(settings_item)
+        about_item = Gtk.MenuItem(label="About MailFlag")
+        about_item.connect("activate", self._open_about)
+        menu.append(about_item)
         quit_item = Gtk.MenuItem(label="Quit MailFlag")
         quit_item.connect("activate", self._quit)
         menu.append(quit_item)

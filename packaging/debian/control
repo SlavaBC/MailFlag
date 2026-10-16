@@ -1,5 +1,5 @@
 Package: mailflag
-Version: 0.14.6~beta1
+Version: 0.14.7~beta1
 Section: mail
 Priority: optional
 Architecture: amd64

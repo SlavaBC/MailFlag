@@ -12,8 +12,8 @@ ROOT = Path(__file__).parents[1]
 class PackagingTests(unittest.TestCase):
     def test_version_metadata_is_consistent(self):
         control = (ROOT / 'packaging/debian/control').read_text()
-        self.assertEqual(__version__, '0.14.6-beta1')
-        self.assertEqual(DEBIAN_VERSION, '0.14.6~beta1')
+        self.assertEqual(__version__, '0.14.7-beta1')
+        self.assertEqual(DEBIAN_VERSION, '0.14.7~beta1')
         self.assertIn(f'Version: {DEBIAN_VERSION}', control)
         self.assertIn(f'VERSION={DEBIAN_VERSION}',
                       (ROOT / 'build-deb.sh').read_text())
@@ -127,10 +127,26 @@ class PackagingTests(unittest.TestCase):
         source = (ROOT / 'mailflag/app.py').read_text()
         self.assertIn('Gtk.MenuItem(label="Settings…")', source)
         self.assertIn('Path("/usr/bin/mailflag")', source)
-        self.assertIn('[str(installed), "--settings"]', source)
+        self.assertIn('[str(installed), mode]', source)
         self.assertLess(
             source.index('Gtk.MenuItem(label="Settings…")'),
+            source.index('Gtk.MenuItem(label="About MailFlag")'),
+        )
+        self.assertLess(
+            source.index('Gtk.MenuItem(label="About MailFlag")'),
             source.index('Gtk.MenuItem(label="Quit MailFlag")'),
+        )
+
+    def test_about_tab_has_placeholder_links_and_direct_opening(self):
+        settings = (ROOT / 'mailflag/settings_gui.py').read_text()
+        entrypoint = (ROOT / 'mailflag/__main__.py').read_text()
+        for label in ('Website', 'GitHub', 'Privacy Policy', 'GPLv3 License'):
+            self.assertIn(f'"{label}"', settings)
+        self.assertIn('Gtk.LinkButton.new_with_label("about:blank", label)', settings)
+        self.assertIn("run_settings('about' if '--about'", entrypoint)
+        self.assertIn(
+            "send_command(directory / 'settings-control.sock', 'show-about')",
+            entrypoint,
         )
 
     def test_beta_acceptance_report_is_packaged(self):
@@ -140,7 +156,7 @@ class PackagingTests(unittest.TestCase):
 
     def test_manual_documents_public_commands(self):
         manual = (ROOT / 'packaging/mailflag.1').read_text()
-        for option in ('--settings', '--background', '--startup', '--remove-account',
+        for option in ('--settings', '--about', '--background', '--startup', '--remove-account',
                        '--configure-folders', '--help'):
             self.assertIn(option, manual)
 

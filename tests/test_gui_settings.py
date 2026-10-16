@@ -154,6 +154,7 @@ class SettingsModelTests(unittest.TestCase):
         self.assertTrue(should_open_settings(["--startup"], []))
         self.assertFalse(should_open_settings(["--startup"], ["a@yahoo.com"]))
         self.assertTrue(should_open_settings(["--settings"], None))
+        self.assertTrue(should_open_settings(["--about"], None))
         self.assertFalse(should_open_settings(["--background"], None))
 
 
