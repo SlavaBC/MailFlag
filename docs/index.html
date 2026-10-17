@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MailFlag brings email verification codes and lightweight mail actions to your Linux desktop.">
+  <meta name="theme-color" content="#6037cc">
+  <title>MailFlag — Email notifications for Linux</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="header">
+    <div class="wrap nav">
+      <a class="logo" href="#top" aria-label="MailFlag home"><span class="logo-mark">⚑</span><span>MailFlag</span></a>
+      <nav aria-label="Primary navigation">
+        <a href="#features">Features</a><a href="#privacy">Privacy</a><a href="#download">Download</a><a data-link="github" href="#open-source">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="overline">Email notifications for Linux</p>
+          <h1><span>Mail</span>Flag</h1>
+          <h2>Get email verification codes instantly on your desktop.</h2>
+          <p>MailFlag watches your mailbox in the background and shows verification codes as soon as they arrive. One click copies the code to your clipboard.</p>
+          <div class="provider-note" role="note"><strong>Currently supports Yahoo Mail only</strong><span>Gmail, Outlook and other providers are not supported yet.</span></div>
+          <div class="actions"><a class="btn primary" data-link="download" href="#download">↓ &nbsp; Download for Linux</a><a class="btn outline" data-link="github" href="#open-source">◉ &nbsp; View on GitHub</a></div>
+          <a class="hero-readme" data-link="readme" href="README.md">Read full description</a>
+          <p class="meta">Free and open source <i>•</i> GPLv3</p>
+        </div>
+        <div class="hero-laptop">
+          <div class="laptop-screen"><img src="assets/images/mailflag-otp.png" alt="MailFlag showing a Spotify verification code on a Linux desktop"></div>
+          <div class="laptop-base" aria-hidden="true"><span></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="compare" id="features">
+      <div class="wrap">
+        <div class="section-title centered"><h2>Stop refreshing your inbox for verification codes.</h2><p>Get your codes in seconds instead of checking your inbox manually.</p></div>
+        <div class="compare-grid">
+          <article class="flow without"><h3>Without MailFlag</h3><div class="steps"><div><b>◎</b><span>Open<br>webmail</span></div><em>→</em><div><b>↻</b><span>Refresh<br>inbox</span></div><em>→</em><div><b>✉</b><span>Find the<br>message</span></div><em>→</em><div><b>▤</b><span>Open<br>it</span></div><em>→</em><div><b>▧</b><span>Select<br>the code</span></div><em>→</em><div><b>▣</b><span>Copy<br>it</span></div></div></article>
+          <article class="flow with"><h3>With MailFlag</h3><div class="steps short"><div><b>✉</b><span>Wait for<br>the popup</span></div><em>→</em><div><b>¹²³</b><span>Click<br>the code</span></div><em>→</em><div><b>▢</b><span>Paste</span></div><div class="done"><b>✓</b><strong>That’s it.</strong></div></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="showcase">
+      <div class="wrap cards">
+        <article class="feature-card" id="demo"><h2>See MailFlag in action</h2><p>A real sign-in flow: the verification code arrives, MailFlag detects it, and the code is ready to copy.</p><div class="media video"><video controls preload="metadata" playsinline poster="assets/images/mailflag-otp.png"><source src="assets/video/mailflag-demo.mp4" type="video/mp4">Your browser does not support the video element.</video></div></article>
+        <article class="feature-card" id="regular-email"><h2>Not just verification codes</h2><p>MailFlag also works as a lightweight desktop notification layer for regular email.</p><div class="media"><img src="assets/images/mailflag-regular-popup.png" alt="MailFlag regular email popup with quick actions" loading="lazy"></div><p class="quick">Quick actions: <strong>Open • Delete • Spam • Ignore • Mark as Read</strong></p><p class="compact">Handle simple messages without opening your full email client.</p></article>
+        <article class="feature-card" id="pending"><h2>Missed the popup? No problem.</h2><p>If a notification disappears before you handle it, MailFlag keeps a small persistent indicator on your desktop so pending mail does not get forgotten.</p><div class="media"><img src="assets/images/mailflag-pending-indicator.png" alt="MailFlag persistent pending indicator on a Linux desktop" loading="lazy"></div></article>
+        <article class="feature-card" id="background"><h2>Runs quietly in the background</h2><p>MailFlag continuously monitors your configured mailboxes and reconnects automatically after temporary network interruptions or sleep/resume.</p><div class="media"><img src="assets/images/mailflag-tray-menu.png" alt="MailFlag tray status menu with anonymized accounts" loading="lazy"></div><p class="compact">Multiple accounts • Monitored folders • Automatic reconnect • Background operation</p></article>
+      </div>
+    </section>
+
+    <section class="facts" id="privacy">
+      <div class="wrap facts-grid">
+        <article><span class="fact-icon">♢</span><div><h3>Your privacy is respected</h3><p class="privacy-lead">Your email stays between you and your email provider.</p><p>MailFlag connects directly to your mailbox over IMAP.</p><ul><li>No MailFlag cloud</li><li>No analytics</li><li>No advertising</li><li>No telemetry</li><li>Credentials stored in Linux system keyring</li></ul><a data-link="privacy" href="PRIVACY.md">Read Privacy Policy →</a></div></article>
+        <article id="support"><span class="fact-icon">⚙</span><div><h3>Current support</h3><p><strong>Linux</strong><br>Currently tested primarily on Linux Mint 22.x.</p><p><strong>Yahoo Mail</strong><br>Yahoo Mail is currently the only supported email provider.</p><p>Gmail, Outlook, iCloud and other providers are planned for future versions.</p><p>Which provider would you like to see next?</p><a data-link="providerRequest" aria-disabled="true" href="#support">Request a provider →</a></div></article>
+        <article id="open-source"><span class="fact-icon">⌘</span><div><h3>Free and open source</h3><p>MailFlag is licensed under the GNU General Public License v3.0.</p><p>You can inspect the source code, report issues, suggest features, and contribute on GitHub.</p><a data-link="github" aria-disabled="true" href="#open-source">View source on GitHub →</a></div></article>
+        <article><span class="fact-icon">✉</span><div><h3>Lightweight and reliable</h3><ul><li>Multiple accounts</li><li>Monitored folders</li><li>Automatic reconnect</li><li>Background operation</li></ul></div></article>
+      </div>
+    </section>
+
+    <section class="cta" id="download"><div class="wrap centered"><h2>Ready to try MailFlag?</h2><p>Download MailFlag for Linux and start getting your verification codes instantly.</p><p class="download-requirement">Requires a Yahoo Mail account.</p><a class="btn primary large" data-link="download" aria-disabled="true" href="#download">↓ &nbsp; Download .deb</a><p class="meta">Free <i>•</i> Open source <i>•</i> GPLv3</p><a class="release" data-link="releases" aria-disabled="true" href="#download">Release notes →</a></div></section>
+  </main>
+
+  <footer><div class="wrap footer"><div class="footer-brand"><a class="logo" href="#top"><span class="logo-mark">⚑</span><span>MailFlag</span></a><small>Email notifications for Linux</small></div><div class="footer-links"><a data-link="github" href="#open-source">GitHub</a><a data-link="readme" href="README.md">About MailFlag</a><a data-link="privacy" href="PRIVACY.md">Privacy Policy</a><a data-link="license" href="#open-source">License</a><a data-link="issues" href="#support">Report an issue</a><a data-link="featureRequest" href="#support">Request a feature</a></div></div></footer>
+  <script src="script.js"></script>
+</body>
+</html>
