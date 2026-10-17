@@ -2,8 +2,8 @@
 const LINKS = {
   github: "https://github.com/SlavaBC/MailFlag",
   readme: "https://github.com/SlavaBC/MailFlag/blob/master/README.md",
-  releases: "https://github.com/SlavaBC/MailFlag/releases/tag/v0.14.7-beta1",
-  download: "https://github.com/SlavaBC/MailFlag/releases/download/v0.14.7-beta1/mailflag_0.14.7.beta1_amd64.deb",
+  releases: "https://github.com/SlavaBC/MailFlag/releases",
+  download: "https://github.com/SlavaBC/MailFlag/releases",
   privacy: "https://github.com/SlavaBC/MailFlag/blob/master/PRIVACY.md",
   license: "https://github.com/SlavaBC/MailFlag/blob/master/LICENSE",
   issues: "https://github.com/SlavaBC/MailFlag/issues/new",
