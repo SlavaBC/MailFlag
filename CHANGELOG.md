@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.8-beta1
+
+- Connect the About tab to the published MailFlag website, GitHub repository,
+  Privacy Policy and GPLv3 License.
+
 ## 0.14.7-beta1
 
 - Add **About MailFlag** to the tray menu between Settings and Quit.

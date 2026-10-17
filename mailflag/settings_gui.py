@@ -21,10 +21,10 @@ PLATFORM = get_platform()
 SETTINGS_WINDOW = None
 
 ABOUT_LINKS = (
-    "Website",
-    "GitHub",
-    "Privacy Policy",
-    "GPLv3 License",
+    ("Website", "https://slavabc.github.io/MailFlag/"),
+    ("GitHub", "https://github.com/SlavaBC/MailFlag"),
+    ("Privacy Policy", "https://github.com/SlavaBC/MailFlag/blob/master/PRIVACY.md"),
+    ("GPLv3 License", "https://github.com/SlavaBC/MailFlag/blob/master/LICENSE"),
 )
 
 
@@ -427,18 +427,13 @@ class SettingsWindow(Gtk.Window):
         page.pack_start(Gtk.Label(label="Lightweight mail notifier with instant verification-code handling."), False, False, 0)
         links = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         links.set_halign(Gtk.Align.CENTER)
-        for label in ABOUT_LINKS:
-            link = Gtk.LinkButton.new_with_label("about:blank", label)
-            link.set_tooltip_text("Link will be available after publication.")
-            link.connect("activate-link", self._placeholder_about_link)
+        for label, url in ABOUT_LINKS:
+            link = Gtk.LinkButton.new_with_label(url, label)
             links.pack_start(link, False, False, 0)
         page.pack_start(links, False, False, 8)
         self.about_page_index = self.notebook.append_page(
             page, Gtk.Label(label="About")
         )
-
-    def _placeholder_about_link(self, _link):
-        return True
 
     def _error(self, title, detail):
         dialog = Gtk.MessageDialog(transient_for=self, modal=True,

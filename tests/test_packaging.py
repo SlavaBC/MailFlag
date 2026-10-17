@@ -12,8 +12,8 @@ ROOT = Path(__file__).parents[1]
 class PackagingTests(unittest.TestCase):
     def test_version_metadata_is_consistent(self):
         control = (ROOT / 'packaging/debian/control').read_text()
-        self.assertEqual(__version__, '0.14.7-beta1')
-        self.assertEqual(DEBIAN_VERSION, '0.14.7~beta1')
+        self.assertEqual(__version__, '0.14.8-beta1')
+        self.assertEqual(DEBIAN_VERSION, '0.14.8~beta1')
         self.assertIn(f'Version: {DEBIAN_VERSION}', control)
         self.assertIn(f'VERSION={DEBIAN_VERSION}',
                       (ROOT / 'build-deb.sh').read_text())
@@ -137,12 +137,19 @@ class PackagingTests(unittest.TestCase):
             source.index('Gtk.MenuItem(label="Quit MailFlag")'),
         )
 
-    def test_about_tab_has_placeholder_links_and_direct_opening(self):
+    def test_about_tab_has_public_links_and_direct_opening(self):
         settings = (ROOT / 'mailflag/settings_gui.py').read_text()
         entrypoint = (ROOT / 'mailflag/__main__.py').read_text()
-        for label in ('Website', 'GitHub', 'Privacy Policy', 'GPLv3 License'):
-            self.assertIn(f'"{label}"', settings)
-        self.assertIn('Gtk.LinkButton.new_with_label("about:blank", label)', settings)
+        expected = {
+            'Website': 'https://slavabc.github.io/MailFlag/',
+            'GitHub': 'https://github.com/SlavaBC/MailFlag',
+            'Privacy Policy': 'https://github.com/SlavaBC/MailFlag/blob/master/PRIVACY.md',
+            'GPLv3 License': 'https://github.com/SlavaBC/MailFlag/blob/master/LICENSE',
+        }
+        for label, url in expected.items():
+            self.assertIn(f'("{label}", "{url}")', settings)
+        self.assertIn('Gtk.LinkButton.new_with_label(url, label)', settings)
+        self.assertNotIn('about:blank', settings)
         self.assertIn("run_settings('about' if '--about'", entrypoint)
         self.assertIn(
             "send_command(directory / 'settings-control.sock', 'show-about')",
