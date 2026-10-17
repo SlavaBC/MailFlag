@@ -1,14 +1,14 @@
-// Replace public destinations here once they exist. Do not duplicate URLs in HTML.
+// Keep public destinations centralized here. Matching href values in HTML are fallbacks when JavaScript is unavailable.
 const LINKS = {
-  github: null,          // TODO: public GitHub repository URL
-  readme: "README.md",
-  releases: null,        // TODO: public GitHub Releases URL
-  download: null,        // TODO: direct .deb URL
-  privacy: "PRIVACY.md",
-  license: null,         // TODO: public GPLv3 license URL
-  issues: null,          // TODO: public issues URL
-  featureRequest: null,  // TODO: public feature request URL
-  providerRequest: null  // TODO: provider request URL
+  github: "https://github.com/SlavaBC/MailFlag",
+  readme: "https://github.com/SlavaBC/MailFlag/blob/master/README.md",
+  releases: "https://github.com/SlavaBC/MailFlag/releases/tag/v0.14.7-beta1",
+  download: "https://github.com/SlavaBC/MailFlag/releases/download/v0.14.7-beta1/mailflag_0.14.7.beta1_amd64.deb",
+  privacy: "https://github.com/SlavaBC/MailFlag/blob/master/PRIVACY.md",
+  license: "https://github.com/SlavaBC/MailFlag/blob/master/LICENSE",
+  issues: "https://github.com/SlavaBC/MailFlag/issues/new",
+  featureRequest: "https://github.com/SlavaBC/MailFlag/issues/new",
+  providerRequest: "https://github.com/SlavaBC/MailFlag/issues/new"
 };
 
 document.querySelectorAll("[data-link]").forEach((link) => {
