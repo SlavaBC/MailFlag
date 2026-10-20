@@ -1,5 +1,7 @@
 # MailFlag
 
+[![GitHub release downloads](https://img.shields.io/github/downloads/SlavaBC/MailFlag/total?label=downloads&logo=github)](https://github.com/SlavaBC/MailFlag/releases)
+
 MailFlag is a lightweight desktop email notifier for Linux. It connects directly to your mailbox over IMAP and watches for new mail in the background, so you do not need to keep webmail or a full email client open just to catch a verification code or an important message.
 
 ## Why MailFlag
