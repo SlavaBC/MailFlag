@@ -4,11 +4,8 @@ import configparser
 import os
 import sys
 
-from imap_tools import MailBox
-
 from .core.accounts import configured_emails, configured_folders, set_configured_folders
 from .platform import get_platform
-from .providers import YAHOO
 
 
 EXCLUDED_SPECIAL_FLAGS = {
@@ -59,17 +56,18 @@ def configure_folders(requested_account=None):
     if not accounts:
         raise SystemExit("No accounts configured. Run mailflag --add-account first.")
     account = _choose_account(accounts, requested_account)
-    password = platform.credentials.get(account)
-    if not password:
-        raise SystemExit("Yahoo App Password is unavailable in the system keyring.")
+    # Imported here to avoid a module cycle: SettingsService reuses the
+    # selectable-folder filter from this module.
+    from .settings_service import SettingsService
+    service = SettingsService(platform=platform)
+    details = service.account_details(account)
+    print(f"Discovering IMAP folders for {details.display_name}...")
+    available = [
+        folder for folder in service.discover_folders(account)
+        if folder.casefold() != "inbox"
+    ]
 
-    print(f"Discovering Yahoo folders for {account}...")
-    with MailBox(YAHOO.imap_host, timeout=15).login(
-        account, password, initial_folder=None,
-    ) as mailbox:
-        available = selectable_folder_names(mailbox.folder.list(), YAHOO.inbox)
-
-    current = configured_folders(config, account, YAHOO.inbox)
+    current = configured_folders(config, account, "INBOX")
     current_folded = {folder.casefold() for folder in current}
     print("INBOX is always monitored.")
     if not available:
@@ -90,7 +88,7 @@ def configure_folders(requested_account=None):
             selected = [available[index - 1] for index in sorted(indexes)]
         except (ValueError, IndexError):
             raise SystemExit("Invalid folder selection.")
-    result = set_configured_folders(config, account, selected, YAHOO.inbox)
+    result = set_configured_folders(config, account, selected, "INBOX")
     platform.paths.config_dir.mkdir(parents=True, exist_ok=True)
     with platform.paths.config_file.open("w", encoding="utf-8") as stream:
         config.write(stream)

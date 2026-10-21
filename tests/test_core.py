@@ -21,6 +21,7 @@ from mailflag.core.accounts import (
 from mailflag.core.actions import move_exact
 from mailflag.core.state import read_store, write_store
 from mailflag.providers.yahoo import YAHOO
+from mailflag.providers.custom import custom_imap_profile
 from mailflag.folders import selectable_folder_names
 from mailflag.single_instance import acquire_instance_lock
 
@@ -45,6 +46,63 @@ class PortableCore(unittest.TestCase):
     def test_provider_profile_owns_yahoo_values(self):
         self.assertEqual(YAHOO.imap_host, 'imap.mail.yahoo.com')
         self.assertEqual(YAHOO.spam_folder, 'Bulk')
+
+    def test_custom_provider_owns_endpoint_and_transport(self):
+        provider = custom_imap_profile('imap.example.test', 143, False, 'Work')
+        self.assertEqual(provider.provider_id, 'custom_imap')
+        self.assertEqual(provider.imap_host, 'imap.example.test')
+        self.assertEqual(provider.imap_port, 143)
+        self.assertFalse(provider.imap_ssl)
+        self.assertIsNone(provider.spam_folder)
+
+    def test_monitor_uses_separate_account_identity_and_login_username(self):
+        box = Mock()
+        box.login.return_value = box
+        box.idle.wait.side_effect = SystemExit()
+        factory = Mock(return_value=box)
+        platform = Mock()
+        platform.power_clock_snapshot.return_value = 0
+        platform.suspend_gap_since.return_value = 0
+        events = Mock()
+        events.monitored_folders.return_value = ['INBOX']
+        events.recover_pending.return_value = 0
+        with patch('mailflag.core.monitor.refresh_folder_status',
+                   return_value={'UIDVALIDITY': 1, 'UIDNEXT': 2}):
+            with self.assertRaises(SystemExit):
+                run_account_monitor(
+                    'custom-stable-id', 'secret',
+                    custom_imap_profile('imap.example.test'), factory,
+                    platform, events, Mock(), MonitorConfig(),
+                    username='actual-login@example.test',
+                )
+        box.login.assert_called_once_with(
+            'actual-login@example.test', 'secret', initial_folder=None
+        )
+
+    def test_custom_monitor_reconnects_after_transient_failure(self):
+        box = Mock()
+        box.login.return_value = box
+        box.idle.wait.side_effect = SystemExit()
+        factory = Mock(side_effect=[OSError('temporary network loss'), box])
+        platform = Mock()
+        platform.power_clock_snapshot.return_value = 0
+        platform.suspend_gap_since.return_value = 0
+        events = Mock()
+        events.monitored_folders.return_value = ['INBOX']
+        events.recover_pending.return_value = 0
+        reconnect = threading.Event()
+        with patch('mailflag.core.monitor.refresh_folder_status',
+                   return_value={'UIDVALIDITY': 1, 'UIDNEXT': 2}):
+            with self.assertRaises(SystemExit):
+                run_account_monitor(
+                    'custom-id', 'secret',
+                    custom_imap_profile('imap.example.test'), factory,
+                    platform, events, reconnect,
+                    MonitorConfig(reconnect_delays=(0,)), username='login',
+                )
+        self.assertEqual(factory.call_count, 2)
+        events.interrupted.assert_called_once()
+        box.login.assert_called_once_with('login', 'secret', initial_folder=None)
 
     def test_monitor_config_is_platform_neutral(self):
         config = MonitorConfig()

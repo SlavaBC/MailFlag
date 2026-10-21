@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.15.0-beta1
+
+- Add a generic Custom IMAP account type alongside the existing Yahoo preset.
+- Add host, port, SSL/TLS, display name and independent login-name settings.
+- Keep Custom IMAP passwords only in the system Secret Service keyring.
+- Reuse the existing folder selection, OTP, popup, pending, reconnect,
+  suspend/resume and UIDVALIDITY safety pipeline for Custom IMAP accounts.
+- Make account removal clear the selected Custom IMAP configuration,
+  credential and local state without changing server mail.
+
 ## 0.14.8-beta1
 
 - Connect the About tab to the published MailFlag website, GitHub repository,

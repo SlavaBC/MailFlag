@@ -20,10 +20,10 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("AyatanaAppIndicator3", "0.1")
 
 from gi.repository import AyatanaAppIndicator3, Gdk, GdkPixbuf, GLib, Gtk, Pango
-from imap_tools import MailBox
+from imap_tools import MailBox, MailBoxUnencrypted
 from .core.actions import mark_exact_read, move_exact, named_folder, special_folder
 from .core.monitor import MonitorConfig, run_account_monitor
-from .core.accounts import configured_emails, configured_folders
+from .core.accounts import configured_accounts, configured_emails, configured_folders
 from .core.state import normalize_account, read_store, write_store
 from .core.otp import (
     MIN_CONFIDENCE as OTP_MIN_CONFIDENCE,
@@ -36,6 +36,7 @@ from .opening import (
     YAHOO_WEBMAIL,
     get_open_mode,
     launch_selected_mode,
+    launch_system_default,
     set_open_mode,
 )
 from .sound import (
@@ -50,7 +51,7 @@ from .ipc import ControlServer
 from .settings_service import SettingsService, otp_timeout
 from .core.status import ConnectionStatus, stale_connected_accounts
 from .platform import get_platform
-from .providers import YAHOO
+from .providers import YAHOO, custom_imap_profile
 from .version import __version__
 
 
@@ -253,7 +254,7 @@ def load_password(email):
 
     if not password:
         raise RuntimeError(
-            "Yahoo App Password was not found in the keyring for this email."
+            "The account password was not found in the system keyring."
         )
 
     return password
@@ -471,8 +472,10 @@ def move_exact_message_to_named_folder(
 
 def move_regular_to_trash(email, password, uid, uidvalidity,
                           source_folder=IMAP_FOLDER):
+    provider = _provider_for(email)
     return move_exact(
-        MailBox, IMAP_HOST, source_folder, email, password, uid, uidvalidity,
+        _mailbox_factory_for(email), provider.imap_host, source_folder,
+        _username_for(email), password, uid, uidvalidity,
         special_folder(r"\Trash", {"Trash", "Deleted", "Deleted Items", "Deleted Messages"}),
     )
 
@@ -483,13 +486,21 @@ def move_regular_to_spam(email, password, uid, uidvalidity,
     # with the special-use flag \\Junk.  On this account imap-tools'
     # high-level folder.list() does not surface that system folder,
     # so use the verified Yahoo IMAP folder name directly.
+    provider = _provider_for(email)
+    destination = (
+        named_folder(YAHOO.spam_folder)
+        if provider.provider_id == "yahoo"
+        else special_folder(r"\Junk", {"Spam", "Junk", "Bulk"})
+    )
     return move_exact(
-        MailBox, IMAP_HOST, source_folder, email, password, uid, uidvalidity,
-        named_folder(YAHOO.spam_folder),
+        _mailbox_factory_for(email), provider.imap_host, source_folder,
+        _username_for(email), password, uid, uidvalidity, destination,
     )
 
 
-def open_default_mail_app():
+def open_default_mail_app(account=None):
+    if account is not None and _provider_for(account).provider_id != "yahoo":
+        return launch_system_default(fallback_to_yahoo=False)
     return launch_selected_mode()
 
 
@@ -1410,6 +1421,7 @@ class RegularMailPopup:
         self.close_popup()
         threading.Thread(
             target=open_default_mail_app,
+            args=(email,),
             daemon=True,
         ).start()
         return True
@@ -1420,6 +1432,7 @@ class RegularMailPopup:
         self.close_popup()
         threading.Thread(
             target=open_default_mail_app,
+            args=(email,),
             daemon=True,
         ).start()
 
@@ -1451,8 +1464,10 @@ class RegularMailPopup:
         self.current_pending_context = None
         self.close_popup()
         def run():
-            if not mark_exact_read(MailBox, IMAP_HOST, folder,
-                                   email, password, uid, uidvalidity):
+            provider = _provider_for(email)
+            if not mark_exact_read(
+                    _mailbox_factory_for(email), provider.imap_host, folder,
+                    _username_for(email), password, uid, uidvalidity):
                 add_pending_uid(email, uidvalidity, uid, folder)
         threading.Thread(target=run, daemon=True).start()
 
@@ -1927,8 +1942,9 @@ class PendingReview:
                 if not password:
                     continue
 
-                with MailBox(IMAP_HOST).login(
-                    email,
+                provider = _provider_for(email)
+                with _mailbox_factory_for(email)(provider.imap_host).login(
+                    _username_for(email),
                     password,
                     initial_folder=folder,
                 ) as mailbox:
@@ -2085,7 +2101,7 @@ class PendingReview:
         label = Gtk.Label()
         label.set_markup(
             "<small><b>Account:</b> " +
-            GLib.markup_escape_text(item["email"]) +
+            GLib.markup_escape_text(_display_name_for(item["email"])) +
             "</small>"
         )
         label.set_xalign(0.0)
@@ -2336,9 +2352,11 @@ class PendingReview:
                 self._stop_and_return_to_indicator()
             return False
         def run():
-            ok = mark_exact_read(MailBox, IMAP_HOST, item["folder"],
-                                 item["email"], item["password"],
-                                 item["uid"], item["uidvalidity"])
+            provider = _provider_for(item["email"])
+            ok = mark_exact_read(
+                _mailbox_factory_for(item["email"]), provider.imap_host,
+                item["folder"], _username_for(item["email"]),
+                item["password"], item["uid"], item["uidvalidity"])
             GLib.idle_add(completed, ok)
         threading.Thread(target=run, daemon=True).start()
 
@@ -2358,6 +2376,7 @@ class PendingReview:
             )
         threading.Thread(
             target=open_default_mail_app,
+            args=(item["email"],),
             daemon=True,
         ).start()
         # Open means the user will review this account's mailbox. Other
@@ -2410,6 +2429,46 @@ pending_review = PendingReview()
 
 APP_ACCOUNTS = {}
 APP_MONITORED_FOLDERS = {}
+APP_ACCOUNT_SETTINGS = {}
+
+
+def _account_settings(account):
+    return APP_ACCOUNT_SETTINGS.get(account)
+
+
+def _provider_for(account):
+    settings = _account_settings(account)
+    if settings is None or settings.provider_id == "yahoo":
+        return YAHOO
+    return custom_imap_profile(
+        settings.imap_host, settings.imap_port, settings.imap_ssl,
+        settings.display_name,
+    )
+
+
+def _username_for(account):
+    settings = _account_settings(account)
+    return settings.username if settings is not None else account
+
+
+def _display_name_for(account):
+    settings = _account_settings(account)
+    return settings.display_name if settings is not None else account
+
+
+def _mailbox_factory_for(account):
+    settings = _account_settings(account)
+    port = settings.imap_port if settings is not None else 993
+    mailbox_type = (
+        MailBoxUnencrypted
+        if settings is not None and not settings.imap_ssl
+        else MailBox
+    )
+
+    def factory(host, timeout=None):
+        return mailbox_type(host, port=port, timeout=timeout)
+
+    return factory
 
 
 def refresh_tray_async():
@@ -2478,10 +2537,12 @@ class _GtkMonitorEvents:
 
 def imap_worker(email, password, stop_event=None):
     print(f"[{email}] worker started.")
+    provider = _provider_for(email)
     run_account_monitor(
-        email, password, YAHOO, MailBox, PLATFORM, _GtkMonitorEvents(),
+        email, password, provider, _mailbox_factory_for(email), PLATFORM,
+        _GtkMonitorEvents(),
         RECONNECT_EVENT, MONITOR_CONFIG, SUSPEND_GAP_SECONDS,
-        stop_event=stop_event,
+        stop_event=stop_event, username=_username_for(email),
     )
 
 
@@ -2537,6 +2598,7 @@ def remove_runtime_account(email):
         raise
 
     APP_ACCOUNTS.pop(email, None)
+    APP_ACCOUNT_SETTINGS.pop(email, None)
     APP_MONITORED_FOLDERS.pop(email, None)
     ACCOUNT_STOP_EVENTS.pop(email, None)
     ACCOUNT_WORKERS.pop(email, None)
@@ -2565,7 +2627,8 @@ def handle_control_command(command):
 
 
 def main():
-    global APP_ACCOUNTS, APP_MONITORED_FOLDERS, CONNECTION_STATUS, tray_indicator
+    global APP_ACCOUNTS, APP_ACCOUNT_SETTINGS, APP_MONITORED_FOLDERS
+    global CONNECTION_STATUS, tray_indicator
 
     try:
         accounts = load_accounts()
@@ -2574,12 +2637,15 @@ def main():
         return
 
     if not accounts:
-        print("No Yahoo accounts configured.")
+        print("No MailFlag accounts configured.")
         return
 
     config = configparser.ConfigParser()
     if CONFIG_FILE.exists():
         config.read(CONFIG_FILE, encoding="utf-8")
+    APP_ACCOUNT_SETTINGS = {
+        settings.account_id: settings for settings in configured_accounts(config)
+    }
     APP_MONITORED_FOLDERS = {
         email: configured_folders(config, email, IMAP_FOLDER)
         for email in accounts
@@ -2618,7 +2684,7 @@ def main():
     print(f"Accounts configured: {len(accounts)}")
     for email in accounts:
         suffix = "" if email in credentials else " (keyring unavailable)"
-        print(" -", email + suffix)
+        print(" -", _display_name_for(email) + suffix)
     for email in accounts:
         print(f"[{email}] Monitored folders: " + ", ".join(
             APP_MONITORED_FOLDERS[email]

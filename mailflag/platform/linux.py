@@ -23,7 +23,7 @@ class SecretServiceCredentials(CredentialStore):
 
     def set(self, account, secret):
         subprocess.run(
-            ["secret-tool", "store", "--label=MailFlag Yahoo App Password",
+            ["secret-tool", "store", "--label=MailFlag account password",
              "service", "mailflag", "account", account],
             input=secret, text=True, check=True,
         )

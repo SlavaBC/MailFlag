@@ -2,6 +2,7 @@
 
 import configparser
 import socket
+import ssl
 import tempfile
 import time
 import unittest
@@ -45,7 +46,10 @@ class SettingsModelTests(unittest.TestCase):
         self.box.__exit__ = Mock(return_value=False)
         self.box.folder.status.return_value = {"UIDVALIDITY": 1, "UIDNEXT": 2}
         self.factory = Mock(return_value=self.box)
-        self.service = SettingsService(self.platform, self.factory)
+        self.plain_factory = Mock(return_value=self.box)
+        self.service = SettingsService(
+            self.platform, self.factory, self.plain_factory
+        )
 
     def test_fresh_install_has_no_accounts_and_defaults(self):
         self.assertEqual(self.service.accounts(), [])
@@ -63,7 +67,7 @@ class SettingsModelTests(unittest.TestCase):
 
     def test_wrong_password_does_not_write_account_or_credential(self):
         self.box.folder.status.side_effect = OSError("authentication rejected")
-        with self.assertRaises(OSError):
+        with self.assertRaisesRegex(RuntimeError, "Authentication failed"):
             self.service.add_yahoo_account("a@yahoo.com", "wrong")
         self.assertEqual(self.service.accounts(), [])
         self.assertEqual(self.platform.credentials.values, {})
@@ -134,6 +138,97 @@ class SettingsModelTests(unittest.TestCase):
         self.service.update_yahoo_credential("a@yahoo.com", "replacement")
         self.assertEqual(self.service.accounts(), ["a@yahoo.com"])
         self.assertEqual(self.platform.credentials.get("a@yahoo.com"), "replacement")
+
+    def test_custom_imaps_is_private_and_survives_restart(self):
+        account = self.service.add_custom_account(
+            "Work mail", "person@example.test", "imap.example.test", 993,
+            True, "secret-value", ["INBOX", "Receipts"],
+            account_id="custom-test",
+        )
+        self.assertEqual(account, "custom-test")
+        text = self.platform.paths.config_file.read_text()
+        self.assertNotIn("secret-value", text)
+        self.assertIn("provider = custom_imap", text)
+        self.assertEqual(self.platform.credentials.get(account), "secret-value")
+        details = SettingsService(
+            self.platform, self.factory, self.plain_factory
+        ).account_details(account)
+        self.assertEqual(details.display_name, "Work mail")
+        self.assertEqual(details.username, "person@example.test")
+        self.assertEqual(details.imap_host, "imap.example.test")
+        self.assertEqual(details.imap_port, 993)
+        self.assertTrue(details.imap_ssl)
+        self.assertEqual(self.service.folders(account), ["INBOX", "Receipts"])
+        self.factory.assert_called_with(
+            "imap.example.test", port=993, timeout=15
+        )
+        self.box.login.assert_called_with(
+            "person@example.test", "secret-value", initial_folder=None
+        )
+
+    def test_custom_plain_imap_uses_unencrypted_factory(self):
+        self.service.add_custom_account(
+            "Lab", "lab-user", "mail.lan", 143, False, "secret",
+            account_id="custom-lab",
+        )
+        self.plain_factory.assert_called_with("mail.lan", port=143, timeout=15)
+        self.factory.assert_not_called()
+
+    def test_custom_validation_and_connection_errors_are_clear(self):
+        with self.assertRaisesRegex(ValueError, "Invalid IMAP host"):
+            self.service.test_custom_connection(
+                "Bad", "user", "bad host", 993, True, "secret"
+            )
+        with self.assertRaisesRegex(ValueError, "Invalid IMAP port"):
+            self.service.test_custom_connection(
+                "Bad", "user", "mail.test", 70000, True, "secret"
+            )
+        self.box.folder.status.side_effect = OSError("host unreachable")
+        with self.assertRaisesRegex(RuntimeError, "host is unreachable"):
+            self.service.test_custom_connection(
+                "Bad", "user", "missing.test", 993, True, "secret"
+            )
+
+    def test_custom_server_without_idle_is_rejected(self):
+        self.box.client.capabilities = (b"IMAP4rev1", b"UIDPLUS")
+        with self.assertRaisesRegex(RuntimeError, "required IMAP IDLE"):
+            self.service.test_custom_connection(
+                "Legacy", "user", "imap.test", 993, True, "secret"
+            )
+
+    def test_custom_ssl_failure_is_explained(self):
+        self.box.folder.status.side_effect = ssl.SSLError("certificate verify failed")
+        with self.assertRaisesRegex(RuntimeError, "SSL/TLS error"):
+            self.service.test_custom_connection(
+                "Secure", "user", "imap.test", 993, True, "secret"
+            )
+
+    def test_mixed_accounts_and_custom_remove_readd(self):
+        self.service.add_yahoo_account("a@yahoo.com", "yahoo-secret")
+        account = self.service.add_custom_account(
+            "Office", "office-user", "imap.office.test", 993, True,
+            "office-secret", ["INBOX", "Alerts"], account_id="custom-office",
+        )
+        write_store(self.platform.paths.state_file, {
+            "accounts": {account: {"folders": {"INBOX": {
+                "uidvalidity": 9, "last_processed_uid": 12,
+                "pending_uids": [12], "message_refs": {},
+            }}}},
+        })
+        self.assertEqual(self.service.accounts(), ["a@yahoo.com", account])
+        self.service.remove_account(account)
+        self.assertEqual(self.service.accounts(), ["a@yahoo.com"])
+        self.assertNotIn(account, self.platform.credentials.values)
+        self.assertNotIn(account, read_store(
+            self.platform.paths.state_file
+        )["accounts"])
+        text = self.platform.paths.config_file.read_text()
+        self.assertNotIn("imap.office.test", text)
+        self.service.add_custom_account(
+            "Office", "office-user", "imap.office.test", 993, True,
+            "new-secret", account_id=account,
+        )
+        self.assertEqual(self.platform.credentials.get(account), "new-secret")
 
     def test_notification_durations_and_otp_cap(self):
         for duration in POPUP_DURATIONS:

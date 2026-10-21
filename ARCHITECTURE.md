@@ -3,14 +3,18 @@
 - `mailflag/core`: provider- and desktop-independent account parsing, message
   identities, OTP classification, JSON state codec, UID/delivery policy,
   reconnect/status models, and exact IMAP actions.
-- `mailflag/providers`: provider profiles. Yahoo owns its host, Inbox, webmail
-  URL and Spam folder here.
+- `mailflag/providers`: provider profiles. Yahoo owns its preset values here;
+  Custom IMAP builds the same neutral profile from user configuration.
 - `mailflag/platform`: OS service contracts and the current Linux backend.
 - `mailflag/app.py`: Linux GTK presentation and composition root. It converts
   Core events into popup, pending-indicator and tray behavior.
 - One monitor worker and one IMAP connection are created per account. INBOX
   remains selected for IDLE; configured extra folders are checked sequentially
   every 30 seconds and INBOX is reselected before the next IDLE cycle.
+- Account identity is separate from the IMAP login name. Custom account
+  credentials use the stable local account ID in Secret Service, while only
+  nonsecret host, port, transport, display name and username values are stored
+  in `config.ini`.
 - `state.json` version 3 stores checkpoints below account and folder. Message-ID
   deduplication is account-wide, while every destructive identity remains
   source-folder + UIDVALIDITY + UID.

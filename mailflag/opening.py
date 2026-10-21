@@ -42,11 +42,11 @@ def set_open_mode(value):
     return value
 
 
-def launch_system_default():
+def launch_system_default(fallback_to_yahoo=True):
     if PLATFORM.open_default_mail_client():
         print("Opened the system-default mail client.")
         return True
-    return launch_yahoo_webmail()
+    return launch_yahoo_webmail() if fallback_to_yahoo else False
 
 
 def launch_yahoo_webmail():

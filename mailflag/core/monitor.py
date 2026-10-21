@@ -86,7 +86,8 @@ def _mailbox_session(mailbox):
 
 def run_account_monitor(account, password, provider, mailbox_factory, platform,
                         events, reconnect_event, config=MonitorConfig(),
-                        suspend_gap_seconds=5.0, stop_event=None):
+                        suspend_gap_seconds=5.0, stop_event=None,
+                        username=None):
     """Run provider-neutral IMAP/IDLE and reconnect classification forever.
 
     UI/state effects are callbacks, so this loop can be reused by another UI
@@ -144,7 +145,7 @@ def run_account_monitor(account, password, provider, mailbox_factory, platform,
         try:
             mailbox = mailbox_factory(
                 provider.imap_host, timeout=config.socket_timeout
-            ).login(account, password, initial_folder=None)
+            ).login(username or account, password, initial_folder=None)
             with _mailbox_session(mailbox):
                 events.register_mailbox(account, mailbox)
                 if stop_event is not None and stop_event.is_set():

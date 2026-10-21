@@ -9,4 +9,6 @@ class ProviderProfile:
     inbox: str
     webmail_url: str
     spam_folder: str | None = None
+    imap_port: int = 993
+    imap_ssl: bool = True
 

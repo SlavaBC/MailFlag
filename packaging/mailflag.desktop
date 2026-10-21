@@ -2,7 +2,7 @@
 Type=Application
 Name=MailFlag
 GenericName=Mail notifier
-Comment=Fast multi-account Yahoo mail and OTP notifications
+Comment=Fast multi-account IMAP mail and OTP notifications
 Exec=/usr/bin/mailflag --settings
 Icon=/usr/share/icons/hicolor/128x128/apps/mailflag.png
 Terminal=false

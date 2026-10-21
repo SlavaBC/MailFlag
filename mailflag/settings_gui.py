@@ -64,34 +64,56 @@ def restart_background():
 
 class AddAccountDialog(Gtk.Dialog):
     def __init__(self, parent, service, account=None):
-        super().__init__(title="Add Yahoo account", transient_for=parent,
+        self.existing = service.account_details(account) if account else None
+        super().__init__(title="Edit account" if account else "Add account",
+                         transient_for=parent,
                          modal=True, destroy_with_parent=True)
         self.service = service
-        self.set_default_size(470, 260)
+        self.set_default_size(500, 520)
         self.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        self.add_button("Add account", Gtk.ResponseType.OK)
+        self.add_button("Save" if account else "Add account", Gtk.ResponseType.OK)
         box = self.get_content_area()
         box.set_spacing(12)
         box.set_margin_start(20); box.set_margin_end(20)
         box.set_margin_top(18); box.set_margin_bottom(18)
-        provider = Gtk.ComboBoxText()
-        provider.append("yahoo", "Yahoo")
-        provider.append("custom", "Custom IMAP — coming in a later adapter")
-        provider.set_active_id("yahoo")
-        provider.connect("changed", lambda combo: self._provider_changed(combo))
+        self.provider = Gtk.ComboBoxText()
+        self.provider.append("yahoo", "Yahoo")
+        self.provider.append("custom_imap", "Custom IMAP")
+        provider_id = self.existing.provider_id if self.existing else "yahoo"
+        self.provider.set_active_id(provider_id)
+        self.provider.set_sensitive(self.existing is None)
+        self.provider.connect("changed", self._provider_changed)
         box.pack_start(Gtk.Label(label="Provider", xalign=0), False, False, 0)
-        box.pack_start(provider, False, False, 0)
+        box.pack_start(self.provider, False, False, 0)
+
+        self.custom_widgets = []
+        self.display_name = Gtk.Entry()
+        self.display_name.set_placeholder_text("Work mail")
+        self._add_custom_field(box, "Account name / display name", self.display_name)
+
         self.email = Gtk.Entry()
-        self.email.set_placeholder_text("name@yahoo.com")
-        self.email.set_text(account or "")
-        self.email.set_sensitive(account is None)
-        box.pack_start(Gtk.Label(label="Email", xalign=0), False, False, 0)
+        self.email.set_placeholder_text("name@example.com")
+        box.pack_start(Gtk.Label(label="Email / username", xalign=0), False, False, 0)
         box.pack_start(self.email, False, False, 0)
+
+        self.host = Gtk.Entry()
+        self.host.set_placeholder_text("imap.example.com")
+        self._add_custom_field(box, "IMAP host", self.host)
+
+        port_row = Gtk.Box(spacing=12)
+        self.port = Gtk.SpinButton.new_with_range(1, 65535, 1)
+        self.port.set_value(993)
+        self.ssl = Gtk.CheckButton(label="Use SSL/TLS")
+        self.ssl.set_active(True)
+        port_row.pack_start(self.port, False, False, 0)
+        port_row.pack_start(self.ssl, False, False, 0)
+        self._add_custom_field(box, "Port and security", port_row)
+
         self.password = Gtk.Entry()
         self.password.set_visibility(False)
         self.password.set_input_purpose(Gtk.InputPurpose.PASSWORD)
-        self.password.set_placeholder_text("Yahoo App Password")
-        box.pack_start(Gtk.Label(label="App Password", xalign=0), False, False, 0)
+        self.password.set_placeholder_text("Password / app password")
+        box.pack_start(Gtk.Label(label="Password / app password", xalign=0), False, False, 0)
         box.pack_start(self.password, False, False, 0)
         row = Gtk.Box(spacing=10)
         test = Gtk.Button(label="Test connection")
@@ -100,25 +122,60 @@ class AddAccountDialog(Gtk.Dialog):
         row.pack_start(test, False, False, 0)
         row.pack_start(self.status, True, True, 0)
         box.pack_start(row, False, False, 0)
+        if self.existing:
+            self.email.set_text(self.existing.username)
+            self.display_name.set_text(self.existing.display_name)
+            self.host.set_text(self.existing.imap_host)
+            self.port.set_value(self.existing.imap_port)
+            self.ssl.set_active(self.existing.imap_ssl)
+            self.email.set_sensitive(self.existing.provider_id == "custom_imap")
+        self._provider_changed(self.provider)
         self.show_all()
+        self._provider_changed(self.provider)
+
+    def _add_custom_field(self, box, label, widget):
+        caption = Gtk.Label(label=label, xalign=0)
+        box.pack_start(caption, False, False, 0)
+        box.pack_start(widget, False, False, 0)
+        self.custom_widgets.extend((caption, widget))
 
     def _provider_changed(self, combo):
-        if combo.get_active_id() == "custom":
-            self.status.set_text("Custom IMAP is reserved for the next provider adapter.")
-            self.get_widget_for_response(Gtk.ResponseType.OK).set_sensitive(False)
-        else:
-            self.status.set_text("")
-            self.get_widget_for_response(Gtk.ResponseType.OK).set_sensitive(True)
+        custom = combo.get_active_id() == "custom_imap"
+        for widget in self.custom_widgets:
+            widget.set_visible(custom)
+        self.email.set_placeholder_text(
+            "name@example.com" if custom else "name@yahoo.com"
+        )
+        self.password.set_placeholder_text(
+            "Password / app password" if custom else "Yahoo App Password"
+        )
+        self.status.set_text("")
+
+    def custom_values(self):
+        return {
+            "display_name": self.display_name.get_text().strip(),
+            "username": self.email.get_text().strip(),
+            "host": self.host.get_text().strip(),
+            "port": self.port.get_value_as_int(),
+            "use_ssl": self.ssl.get_active(),
+            "password": self.password.get_text(),
+        }
 
     def _test(self, _button):
         self.status.set_text("Testing…")
         while Gtk.events_pending(): Gtk.main_iteration_do(False)
         try:
-            self.service.test_connection(self.email.get_text().strip(),
-                                         self.password.get_text())
+            if self.provider.get_active_id() == "custom_imap":
+                self.service.test_custom_connection(**self.custom_values())
+            else:
+                self.service.test_connection(self.email.get_text().strip(),
+                                             self.password.get_text())
             self.status.set_markup("<span foreground='#208a45'>Connected</span>")
         except Exception as exc:
-            self.status.set_markup("<span foreground='#bb2929'>Connection failed</span>")
+            self.status.set_markup(
+                "<span foreground='#bb2929'>" +
+                GLib.markup_escape_text(str(exc)) + "</span>"
+            )
 
 
 class FolderSelectionDialog(Gtk.Dialog):
@@ -205,7 +262,7 @@ class SettingsWindow(Gtk.Window):
         )
         dialog.format_secondary_text(
             "MailFlag monitors email in the background and processes mail locally. "
-            "Add your Yahoo account to get started."
+            "Add a Yahoo or Custom IMAP account to get started."
         )
         dialog.run(); dialog.destroy()
         self._add_account(None)
@@ -218,10 +275,14 @@ class SettingsWindow(Gtk.Window):
         self._clear_list(self.accounts_list)
         accounts = self.service.accounts()
         for account in accounts:
+            details = self.service.account_details(account)
             row = Gtk.Box(spacing=10)
             text = Gtk.Label(xalign=0)
+            provider = ("Yahoo" if details.provider_id == "yahoo"
+                        else "Custom IMAP")
             text.set_markup(
-                f"<b>Yahoo — {GLib.markup_escape_text(account)}</b>\n"
+                f"<b>{provider} — {GLib.markup_escape_text(details.display_name)}</b>\n"
+                f"{GLib.markup_escape_text(details.username)}\n"
                 f"Monitored folders: {GLib.markup_escape_text(', '.join(self.service.folders(account)))}"
             )
             row.pack_start(text, True, True, 0)
@@ -233,7 +294,9 @@ class SettingsWindow(Gtk.Window):
             row.pack_start(remove, False, False, 0)
             self.accounts_list.add(row)
         self.folder_account.remove_all()
-        for account in accounts: self.folder_account.append_text(account)
+        for account in accounts:
+            details = self.service.account_details(account)
+            self.folder_account.append(account, details.display_name)
         if accounts: self.folder_account.set_active(0)
         self.show_all()
 
@@ -241,9 +304,13 @@ class SettingsWindow(Gtk.Window):
         dialog = AddAccountDialog(self, self.service)
         if dialog.run() == Gtk.ResponseType.OK:
             try:
-                account = dialog.email.get_text().strip()
-                password = dialog.password.get_text()
-                folders = self.service.discover_folders(account, password)
+                if dialog.provider.get_active_id() == "custom_imap":
+                    values = dialog.custom_values()
+                    folders = self.service.discover_custom_folders(**values)
+                else:
+                    account = dialog.email.get_text().strip()
+                    password = dialog.password.get_text()
+                    folders = self.service.discover_folders(account, password)
                 chooser = FolderSelectionDialog(self, folders)
                 response = chooser.run()
                 selected = chooser.selected()
@@ -251,7 +318,14 @@ class SettingsWindow(Gtk.Window):
                 if response != Gtk.ResponseType.OK:
                     dialog.destroy()
                     return
-                self.service.add_yahoo_account(account, password, folders=selected)
+                if dialog.provider.get_active_id() == "custom_imap":
+                    account = self.service.add_custom_account(
+                        **values, folders=selected
+                    )
+                else:
+                    account = self.service.add_yahoo_account(
+                        account, password, folders=selected
+                    )
                 self.refresh_accounts()
                 restart_background()
                 done = Gtk.MessageDialog(
@@ -259,7 +333,8 @@ class SettingsWindow(Gtk.Window):
                     buttons=Gtk.ButtonsType.OK, text="MailFlag is ready",
                 )
                 done.format_secondary_text(
-                    f"{account} is connected. Monitoring: {', '.join(selected)}"
+                    f"{self.service.account_details(account).display_name} is connected. "
+                    f"Monitoring: {', '.join(selected)}"
                 )
                 done.run(); done.destroy()
             except Exception as exc:
@@ -268,11 +343,17 @@ class SettingsWindow(Gtk.Window):
 
     def _edit_account(self, _button, account):
         dialog = AddAccountDialog(self, self.service, account=account)
-        dialog.set_title("Update Yahoo credential")
-        dialog.get_widget_for_response(Gtk.ResponseType.OK).set_label("Save")
         if dialog.run() == Gtk.ResponseType.OK:
             try:
-                self.service.update_yahoo_credential(account, dialog.password.get_text())
+                details = self.service.account_details(account)
+                if details.provider_id == "custom_imap":
+                    self.service.update_custom_account(
+                        account, **dialog.custom_values()
+                    )
+                else:
+                    self.service.update_yahoo_credential(
+                        account, dialog.password.get_text()
+                    )
                 restart_background()
             except Exception as exc:
                 self._error("Account was not updated", str(exc))
@@ -285,7 +366,7 @@ class SettingsWindow(Gtk.Window):
             text=f"Remove account {account} from MailFlag?",
         )
         dialog.format_secondary_text(
-            "Local settings, pending/checkpoint data and the saved App Password "
+            "Local settings, pending/checkpoint data and the saved password "
             "for this account will be removed. Messages, folders and filters on "
             "the mail server will not be changed."
         )
@@ -332,7 +413,7 @@ class SettingsWindow(Gtk.Window):
 
     def _load_folder_checks(self, available=None):
         self._clear_list(self.folder_checks)
-        account = self.folder_account.get_active_text()
+        account = self.folder_account.get_active_id()
         if not account: return
         current = self.service.folders(account)
         available = available or current
@@ -344,7 +425,7 @@ class SettingsWindow(Gtk.Window):
         self.folder_checks.show_all()
 
     def _refresh_folders(self):
-        account = self.folder_account.get_active_text()
+        account = self.folder_account.get_active_id()
         if not account: return
         try: self._load_folder_checks(self.service.discover_folders(account))
         except Exception as exc: self._error("Folders could not be refreshed", str(exc))
@@ -355,7 +436,7 @@ class SettingsWindow(Gtk.Window):
         self.notebook.set_current_page(1)
 
     def _save_folders(self):
-        account = self.folder_account.get_active_text()
+        account = self.folder_account.get_active_id()
         if not account: return
         selected = [child.get_label() for child in self.folder_checks.get_children()
                     if isinstance(child, Gtk.CheckButton) and child.get_active()]

@@ -223,6 +223,15 @@ class MailOpening(unittest.TestCase):
             self.assertTrue(opening.launch_selected_mode())
             start.assert_called_once_with('https://mail.yahoo.com/')
 
+    def test_custom_imap_default_client_failure_does_not_open_yahoo(self):
+        with patch.object(opening.PLATFORM, 'open_default_mail_client',
+                          return_value=False), \
+             patch.object(opening.PLATFORM, 'open_url') as start:
+            self.assertFalse(opening.launch_system_default(
+                fallback_to_yahoo=False
+            ))
+            start.assert_not_called()
+
 
 class StateAndUI(unittest.TestCase):
     def setUp(self):
