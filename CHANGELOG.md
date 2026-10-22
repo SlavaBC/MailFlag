@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.1-beta1
+
+- Refresh IMAP capabilities after successful authentication before requiring
+  IDLE, allowing servers such as Mailo that advertise IDLE only after LOGIN.
+- Add regression coverage for both Test connection and Custom IMAP account
+  creation with pre-login and post-login capability sets.
+
 ## 0.15.0-beta1
 
 - Add a generic Custom IMAP account type alongside the existing Yahoo preset.

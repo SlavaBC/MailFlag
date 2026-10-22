@@ -86,18 +86,40 @@ class SettingsService:
 
     @staticmethod
     def _check_required_features(mailbox, inbox="INBOX"):
-        mailbox.folder.status(inbox)
-        capabilities = getattr(mailbox.client, "capabilities", ())
-        if isinstance(capabilities, (tuple, list, set, frozenset)):
+        """Refresh CAPABILITY after LOGIN before validating IMAP features.
+
+        Some servers, including Mailo, advertise only authentication and
+        STARTTLS capabilities before login and reveal IDLE in the authenticated
+        state.  imaplib's ``capabilities`` attribute can still contain that
+        pre-authentication snapshot, so it must not be used as the primary
+        source here.
+        """
+        response = mailbox.client.capability()
+        response_status = response[0] if isinstance(response, tuple) else ""
+        if isinstance(response_status, bytes):
+            response_status = response_status.decode("ascii", "ignore")
+        if (isinstance(response, tuple) and len(response) == 2
+                and str(response_status).upper() == "OK"):
+            raw_capabilities = response[1] or ()
+            names = set()
+            for line in raw_capabilities:
+                if isinstance(line, bytes):
+                    line = line.decode("ascii", "ignore")
+                names.update(str(line).upper().split())
+        else:
+            # Compatibility with lightweight mailbox adapters while keeping
+            # the real imaplib path above explicitly post-authentication.
+            capabilities = getattr(mailbox.client, "capabilities", ())
             names = {
                 (item.decode("ascii", "ignore") if isinstance(item, bytes)
                  else str(item)).upper()
                 for item in capabilities
-            }
-            if names and "IDLE" not in names:
-                raise RuntimeError(
-                    "Server does not support required IMAP IDLE functionality."
-                )
+            } if isinstance(capabilities, (tuple, list, set, frozenset)) else set()
+        if "IDLE" not in names:
+            raise RuntimeError(
+                "Server does not support required IMAP IDLE functionality."
+            )
+        mailbox.folder.status(inbox)
 
     @staticmethod
     def _friendly_connection_error(exc):

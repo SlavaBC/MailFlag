@@ -45,6 +45,9 @@ class SettingsModelTests(unittest.TestCase):
         self.box.__enter__ = Mock(return_value=self.box)
         self.box.__exit__ = Mock(return_value=False)
         self.box.folder.status.return_value = {"UIDVALIDITY": 1, "UIDNEXT": 2}
+        self.box.client.capability.return_value = (
+            "OK", [b"IMAP4rev1 IDLE UIDPLUS"]
+        )
         self.factory = Mock(return_value=self.box)
         self.plain_factory = Mock(return_value=self.box)
         self.service = SettingsService(
@@ -191,10 +194,53 @@ class SettingsModelTests(unittest.TestCase):
 
     def test_custom_server_without_idle_is_rejected(self):
         self.box.client.capabilities = (b"IMAP4rev1", b"UIDPLUS")
+        self.box.client.capability.return_value = (
+            "OK", [b"IMAP4rev1 UIDPLUS"]
+        )
         with self.assertRaisesRegex(RuntimeError, "required IMAP IDLE"):
             self.service.test_custom_connection(
                 "Legacy", "user", "imap.test", 993, True, "secret"
             )
+
+    def test_mailo_idle_advertised_only_after_login_is_accepted(self):
+        self.box.client.capabilities = (
+            b"IMAP4REV1", b"ID", b"LITERAL+", b"AUTH=LOGIN",
+            b"AUTH=PLAIN", b"STARTTLS",
+        )
+        self.box.client.capability.return_value = (
+            b"OK",
+            [b"IMAP4rev1 ID LITERAL+ ENABLE IDLE QUOTA NAMESPACE "
+             b"SORT UIDPLUS UNSELECT UTF8=ACCEPT"],
+        )
+        self.assertTrue(self.service.test_custom_connection(
+            "Mailo", "person@mailo.com", "mail.mailo.com", 993, True,
+            "app-password",
+        ))
+        self.box.login.assert_called_once_with(
+            "person@mailo.com", "app-password", initial_folder=None
+        )
+        self.box.client.capability.assert_called_once_with()
+        self.box.folder.status.assert_called_once_with("INBOX")
+
+    def test_mailo_account_add_uses_post_login_capability(self):
+        self.box.client.capabilities = (
+            b"IMAP4REV1", b"AUTH=LOGIN", b"AUTH=PLAIN", b"STARTTLS",
+        )
+        self.box.client.capability.return_value = (
+            "OK", [b"IMAP4rev1 ENABLE IDLE QUOTA NAMESPACE UIDPLUS"]
+        )
+        account = self.service.add_custom_account(
+            "Mailo", "person@mailo.com", "mail.mailo.com", 993, True,
+            "app-password", account_id="custom-mailo",
+        )
+        self.assertEqual(account, "custom-mailo")
+        self.assertEqual(self.service.accounts(), ["custom-mailo"])
+        self.assertEqual(
+            self.platform.credentials.get("custom-mailo"), "app-password"
+        )
+        self.assertNotIn(
+            "app-password", self.platform.paths.config_file.read_text()
+        )
 
     def test_custom_ssl_failure_is_explained(self):
         self.box.folder.status.side_effect = ssl.SSLError("certificate verify failed")

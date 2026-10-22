@@ -12,8 +12,8 @@ ROOT = Path(__file__).parents[1]
 class PackagingTests(unittest.TestCase):
     def test_version_metadata_is_consistent(self):
         control = (ROOT / 'packaging/debian/control').read_text()
-        self.assertEqual(__version__, '0.15.0-beta1')
-        self.assertEqual(DEBIAN_VERSION, '0.15.0~beta1')
+        self.assertEqual(__version__, '0.15.1-beta1')
+        self.assertEqual(DEBIAN_VERSION, '0.15.1~beta1')
         self.assertIn(f'Version: {DEBIAN_VERSION}', control)
         self.assertIn(f'VERSION={DEBIAN_VERSION}',
                       (ROOT / 'build-deb.sh').read_text())
