@@ -24,7 +24,7 @@ For ordinary email, MailFlag works as a lightweight desktop notification layer, 
 - Persistent pending indicator for messages that were not handled while the popup was visible.
 - Recovery after reconnect, temporary network loss, sleep/resume, and application restart without replaying a storm of old popups.
 - Graphical settings for accounts and monitored folders.
-- A built-in Yahoo preset and manually configured Custom IMAP/IMAPS accounts.
+- Custom IMAP accounts with configurable server, port, SSL/TLS and username.
 - Credentials stored in the Linux system keyring rather than in plain-text configuration files.
 - Local processing of message content. MailFlag does not send your email content, verification codes, or credentials to MailFlag-operated servers.
 - No analytics, advertising, or telemetry.
@@ -32,10 +32,13 @@ For ordinary email, MailFlag works as a lightweight desktop notification layer, 
 ## Current Limitations
 
 - MailFlag is currently focused on Linux and is being tested primarily on Linux Mint 22.x.
-- Yahoo Mail has a built-in preset. Other compatible servers can be added as
-  Custom IMAP by entering the host, port, login name and SSL/TLS setting.
-- Gmail OAuth, Outlook OAuth and Proton Bridge are not integrated. A server
-  that requires OAuth-only authentication cannot currently be added.
+- Yahoo Mail is available as a built-in preset.
+- Custom IMAP accounts are supported on compatible IMAP/IMAPS servers by
+  configuring the server, port, SSL/TLS setting and username. Yahoo Mail and
+  Mailo are the currently tested options; other compatible servers may work
+  but are not claimed as tested providers.
+- Gmail, Outlook and other providers that require a dedicated OAuth
+  integration are not currently supported.
 
 We would be very happy to hear from users about which providers they would like to see next. Feedback and real-world use cases will help us decide what to prioritize, and we are open to adding other IMAP providers as demand grows.
 
