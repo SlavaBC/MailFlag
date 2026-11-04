@@ -1,6 +1,6 @@
 MAILFLAG PRIVACY POLICY
 
-Last updated: October 6, 2026
+Last updated: November 3, 2026
 
 MailFlag is a lightweight desktop email notifier designed to process email locally on your computer. This Privacy Policy explains what information MailFlag handles, how it is used, and what is not collected.
 
@@ -58,6 +58,12 @@ MailFlag does not include advertising, analytics, behavioral tracking, or teleme
 MailFlag does not sell personal information.
 
 MailFlag does not use your email content or account data for AI training.
+
+6A. WEBSITE VISIT STATISTICS
+
+The public MailFlag project website uses GoatCounter to collect aggregate visit statistics. This website measurement is separate from the MailFlag application and does not access email content, credentials, application configuration, or application usage.
+
+The website counter does not use advertising cookies or cross-site behavioral tracking. The resulting statistics are visible only to the project owner.
 
 7. THIRD-PARTY EMAIL PROVIDERS
 
